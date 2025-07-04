@@ -23,4 +23,37 @@ class User extends Authenticatable
         'password',
         'remember_token',
     ];
+    public function isFarmer()
+{
+    return $this->role === 'farmer';
+}
+
+public function isConsumer()
+{
+    return $this->role === 'consumer';
+}
+public function feedback()
+{
+    return $this->hasMany(Feedback::class, 'farmer_id')->where('approved', true);
+}
+
+public function averageRating()
+{
+    return $this->feedback()->avg('rating');
+}
+public function feedbackGiven()
+{
+    return $this->hasMany(Feedback::class, 'user_id');
+}
+
+public function products()
+{
+    return $this->hasMany(Product::class);
+}
+
+public function receivedFeedback()
+{
+    return $this->hasManyThrough(Feedback::class, Product::class);
+}
+
 }

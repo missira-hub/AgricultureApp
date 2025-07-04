@@ -19,7 +19,7 @@ return new class extends Migration
     $table->string('password');
 
     // Add role column with default
-    $table->enum('role', ['admin', 'consumer', 'farmer'])->default('consumer')->after('password');
+    $table->enum('role', ['admin', 'consumer', 'farmer'])->default('consumer');
 
 
     $table->rememberToken();

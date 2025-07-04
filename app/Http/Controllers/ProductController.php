@@ -4,85 +4,114 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class ProductController extends Controller
 {
-    // List all products owned by the authenticated user
+    // ✅ Ensure only farmers can access
+    private function authorizeFarmer()
+    {
+        if (Auth::user()->role !== 'farmer') {
+            abort(response()->json(['message' => 'Access denied. Farmers only.'], 403));
+        }
+    }
+
+    // ✅ List all products owned by the authenticated farmer
     public function index()
     {
-        $userId = auth()->id();
-        $products = Product::where('user_id', $userId)->get();
+        $this->authorizeFarmer();
+
+        $products = Product::where('user_id', Auth::id())->get();
+
         return response()->json($products);
     }
 
-    // Store a new product
+    // ✅ Store a new product for the authenticated farmer
     public function store(Request $request)
-{
-    $validated = $request->validate([
-        'name' => 'required|string|max:255',
-        'description' => 'required|string',
-        'price' => 'required|numeric',
-        'quantity' => 'required|integer',
-    ]);
-
-  // Add the authenticated user's ID
-$validated['user_id'] = auth()->id();
-
-// Check if product with the same unique attribute already exists for this user
-// Adjust the condition below according to your unique fields, e.g., 'name' or 'sku'
-$exists = Product::where('user_id', $validated['user_id'])
-    ->where('name', $validated['name'])  // replace 'name' with your unique field(s)
-    ->exists();
-
-if ($exists) {
-    return response()->json(['message' => 'Product already exists'], 409); // Conflict HTTP status
-}
-
-// If not exists, create the product
-$product = Product::create($validated);
-
-return response()->json($product, 201);
-}
-
-
-    // Show a single product owned by the authenticated user
-    public function show($id)
     {
-        $userId = auth()->id();
-
-        $product = Product::where('user_id', $userId)->findOrFail($id);
-
-        return response()->json($product);
-    }
-
-    // Update a product owned by the authenticated user
-    public function update(Request $request, $id)
-    {
-        $userId = auth()->id();
-
-        $product = Product::where('user_id', $userId)->findOrFail($id);
+        $this->authorizeFarmer();
 
         $validated = $request->validate([
-            'name' => 'sometimes|required|string|max:255',
-            'description' => 'sometimes|required|string',
-            'price' => 'sometimes|required|numeric',
-            'quantity' => 'sometimes|required|integer',
+            'name' => 'required|string|max:255',
+            'description' => 'required|string',
+            'price' => 'required|numeric',
+            'quantity' => 'required|integer',
         ]);
 
-        $product->update($validated);
+        $validated['user_id'] = Auth::id();
+
+        $exists = Product::where('user_id', $validated['user_id'])
+            ->where('name', $validated['name']) // adjust field if needed
+            ->exists();
+
+        if ($exists) {
+            return response()->json(['message' => 'Product already exists'], 409);
+        }
+
+        $product = Product::create($validated);
+
+        return response()->json($product, 201);
+    }
+
+    // ✅ Show a product belonging to the authenticated farmer
+    public function show($id)
+    {
+        $this->authorizeFarmer();
+
+        $product = Product::where('user_id', Auth::id())->findOrFail($id);
 
         return response()->json($product);
     }
 
-    // Delete a product owned by the authenticated user
-    public function destroy($id)
-    {
-        $userId = auth()->id();
+    // ✅ Update a product owned by the authenticated farmer
+    public function update(Request $request, $id)
+{
+    $this->authorizeFarmer();
 
-        $product = Product::where('user_id', $userId)->findOrFail($id);
+    $product = Product::where('user_id', Auth::id())->findOrFail($id);
 
-        $product->delete();
+    $validated = $request->validate([
+        'name' => 'sometimes|required|string|max:255',
+        'description' => 'sometimes|required|string',
+        'price' => 'sometimes|required|numeric',
+        'quantity' => 'sometimes|required|integer',
+    ]);
 
-        return response()->json(null, 204);
+    $product->update($validated);
+
+    // 🔁 Refresh to get latest values from DB
+    $product->refresh();
+
+    return response()->json([
+        'message' => 'Product updated successfully',
+        'product' => $product
+    ]);
+}
+
+
+    // ✅ Delete a product owned by the authenticated farmer
+   public function destroy($id)
+{
+    $this->authorizeFarmer();
+
+    // Try to find the product owned by the authenticated farmer
+    $product = Product::where('user_id', Auth::id())->find($id);
+
+    // If not found, return a meaningful error
+    if (!$product) {
+        return response()->json([
+            'message' => 'Product not found or already deleted.'
+        ], 404);
     }
+
+    // Delete the product
+    $product->delete();
+
+    // Return confirmation message
+    return response()->json([
+        'message' => 'Product deleted successfully.',
+        'product_id' => $id
+    ], 200);
+}
+
 }
