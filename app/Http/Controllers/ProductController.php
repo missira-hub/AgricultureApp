@@ -16,42 +16,35 @@ class ProductController extends Controller
         }
     }
 
-    // ✅ List all products owned by the authenticated farmer
-    public function index()
-    {
-        $this->authorizeFarmer();
-
-        $products = Product::where('user_id', Auth::id())->get();
-
-        return response()->json($products);
+public function index()
+{
+    $user = Auth::user();
+    
+    if ($user->role === 'farmer') {
+        $products = Product::where('user_id', $user->id)->get();
+    } else {
+        $products = Product::all();
     }
+
+    return response()->json($products);
+}
 
     // ✅ Store a new product for the authenticated farmer
     public function store(Request $request)
-    {
-        $this->authorizeFarmer();
+{
+    $farmer = Auth::user();
 
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'description' => 'required|string',
-            'price' => 'required|numeric',
-            'quantity' => 'required|integer',
-        ]);
+    $product = new Product();
+    $product->name = $request->name;
+    $product->description = $request->description;
+    $product->price = $request->price;
+    $product->quantity = $request->quantity;
+    $product->user_id = $farmer->id; // 👈 Link to current farmer
+    $product->save();
 
-        $validated['user_id'] = Auth::id();
+    return response()->json($product, 201);
+}
 
-        $exists = Product::where('user_id', $validated['user_id'])
-            ->where('name', $validated['name']) // adjust field if needed
-            ->exists();
-
-        if ($exists) {
-            return response()->json(['message' => 'Product already exists'], 409);
-        }
-
-        $product = Product::create($validated);
-
-        return response()->json($product, 201);
-    }
 
     // ✅ Show a product belonging to the authenticated farmer
     public function show($id)
@@ -61,31 +54,25 @@ class ProductController extends Controller
         $product = Product::where('user_id', Auth::id())->findOrFail($id);
 
         return response()->json($product);
+    }public function update(Request $request, $id)
+{
+    $product = Product::findOrFail($id);
+
+    $product->name = $request->input('name');
+    $product->description = $request->input('description');
+    $product->price = $request->input('price');
+    $product->quantity = $request->input('quantity');
+
+    if ($request->hasFile('image')) {
+        // Store image in 'public/products'
+        $path = $request->file('image')->store('products', 'public');
+        // Save only the relative path or filename
+        $product->image = $path;
     }
 
-    // ✅ Update a product owned by the authenticated farmer
-    public function update(Request $request, $id)
-{
-    $this->authorizeFarmer();
+    $product->save();
 
-    $product = Product::where('user_id', Auth::id())->findOrFail($id);
-
-    $validated = $request->validate([
-        'name' => 'sometimes|required|string|max:255',
-        'description' => 'sometimes|required|string',
-        'price' => 'sometimes|required|numeric',
-        'quantity' => 'sometimes|required|integer',
-    ]);
-
-    $product->update($validated);
-
-    // 🔁 Refresh to get latest values from DB
-    $product->refresh();
-
-    return response()->json([
-        'message' => 'Product updated successfully',
-        'product' => $product
-    ]);
+    return response()->json($product);
 }
 
 
@@ -113,5 +100,29 @@ class ProductController extends Controller
         'product_id' => $id
     ], 200);
 }
+public function feed(Request $request)
+{
+    $user = auth()->user();
 
+    if ($user->role === 'farmer') {
+        // Only show farmer's own products
+        $products = Product::where('user_id', $user->id)
+            ->whereNull('deleted_at')
+            ->orderBy('created_at', 'desc')
+            ->paginate(10);
+    } elseif ($user->role === 'consumer') {
+        // Show all products from all farmers
+        $products = Product::whereHas('user', function ($query) {
+                $query->where('role', 'farmer');
+            })
+            ->whereNull('deleted_at')
+            ->orderBy('created_at', 'desc')
+            ->paginate(10);
+    } else {
+        // Optional: deny access or return empty for other roles
+        return response()->json(['message' => 'Unauthorized'], 403);
+    }
+
+    return response()->json($products);
+}
 }

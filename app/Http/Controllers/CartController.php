@@ -32,16 +32,22 @@ class CartController extends Controller
     $totalCartValue = 0;
 
     foreach ($cartItems as $item) {
+        if (!$item->product) {
+            continue; // Skip if product doesn't exist
+        }
+
         $lineTotal = $item->product->price * $item->quantity;
         $totalCartValue += $lineTotal;
 
-        $formattedCart[] = [
-            'product_id' => $item->product->id,
-            'name' => $item->product->name,
-            'quantity' => $item->quantity,
-            'unit_price' => $item->product->price,
-            'total_price' => $lineTotal
-        ];
+       $formattedCart[] = [
+    'id' => $item->id,  // Add this line!
+    'product_id' => $item->product->id,
+    'name' => $item->product->name,
+    'quantity' => $item->quantity,
+    'unit_price' => $item->product->price,
+    'total_price' => $lineTotal
+];
+
     }
 
     return response()->json([
@@ -50,6 +56,7 @@ class CartController extends Controller
         'total_cart_value' => $totalCartValue
     ]);
 }
+
 
     // Add product to cart for logged-in consumer
     public function store(Request $request)
@@ -139,4 +146,18 @@ class CartController extends Controller
 
         return response()->json(['message' => 'Cart item deleted successfully']);
     }
+    public function clear(Request $request)
+{
+    $this->authorizeConsumer();
+
+    $user = $request->user();
+
+    // Delete all cart items for this user
+    Cart::where('user_id', $user->id)->delete();
+
+    return response()->json([
+        'message' => 'Cart cleared successfully'
+    ]);
+}
+
 }

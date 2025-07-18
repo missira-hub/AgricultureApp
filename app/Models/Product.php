@@ -13,23 +13,19 @@ class Product extends Model
 {
     use HasFactory, SoftDeletes;
 
-    protected $fillable = [
-        'user_id',
-        'name',
-        'description',
-        'price',
-        'quantity',
-    ];
+   protected $fillable = ['name', 'description', 'price', 'quantity', 'image'];
+
 
     protected $hidden = ['deleted_at'];
 
     /**
      * The farmer who owns the product.
      */
-    public function user()
-    {
-        return $this->belongsTo(User::class);
-    }
+  public function user()
+{
+    return $this->belongsTo(User::class);
+}
+
 
     /**
      * Alias for farmer (optional, same as user).

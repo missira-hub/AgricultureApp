@@ -55,5 +55,20 @@ public function receivedFeedback()
 {
     return $this->hasManyThrough(Feedback::class, Product::class);
 }
+public function conversations()
+{
+    return $this->belongsToMany(Conversation::class)
+        ->withPivot('last_read_at', 'is_hidden')
+        ->withTimestamps();
+}
+
+public function messages()
+{
+    return $this->hasMany(Message::class);
+}
+public function cart()
+{
+    return $this->hasMany(Cart::class);
+}
 
 }
