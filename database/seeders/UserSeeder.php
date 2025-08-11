@@ -29,5 +29,13 @@ class UserSeeder extends Seeder
                 'role' => 'farmer',
             ]
         );
+         User::updateOrCreate(
+            ['email' => 'miss@example.com'],
+            [
+                'name' => 'Miss User',
+                'password' => Hash::make('misspassword'),
+                'role' => 'farmer',
+            ]
+        );
     }
 }

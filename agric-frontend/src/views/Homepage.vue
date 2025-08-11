@@ -340,8 +340,8 @@ import image2 from '@/assets/image2.jpg'
 import icon1 from '@/assets/icon1.png';
 import icon2 from '@/assets/icon2.png';
 import service1 from '@/assets/service1.jpg';
-import service2 from '@/assets/service2.jpg';
-import service3 from '@/assets/service3.jpg';
+import service2 from '@/assets/service11.jpg';
+import service3 from '@/assets/service22.jpg';
 import project1 from '@/assets/project-organic.jpg';
 import project2 from '@/assets/project-women.jpg';
 import project3 from '@/assets/project-school.jpg';
@@ -1166,6 +1166,8 @@ body {
   width: 100%;
   height: 180px;
   object-fit: cover;
+    filter: contrast(135%) brightness(40%) saturate(95%);
+
 }
 
 .large-card {
@@ -1295,6 +1297,8 @@ body {
   width: 100%;
   height: 200px;
   object-fit: cover;
+    filter: contrast(135%) brightness(40%) saturate(95%);
+
 }
 
 .card-body {
@@ -1313,37 +1317,6 @@ body {
   color: #4a5568;
 }
 
-/* Main News Section Container */
-.news-section {
-  text-align: center;
-  padding: 3rem 1.5rem;
-  background: #f0fdf4;
-  font-family: 'Poppins', sans-serif;
-}
-
-/* Title */
-.news-title {
-  font-size: 2.2rem;
-  font-weight: 800;
-  margin-bottom: 1rem;
-  font-family: 'Dancing Script', cursive;
-  background: linear-gradient(to right, #16a34a, #4ade80);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  text-align: center;
-}
-
-/* Optional Subtitle */
-.news-subtitle {
-  font-size: 1.05rem;
-  color: #475569;
-  margin-bottom: 2.5rem;
-  max-width: 700px;
-  margin-left: auto;
-  margin-right: auto;
-  line-height: 1.6;
-  font-style: italic;
-}
 
 .shop-section {
   background: linear-gradient(135deg, #ecfdf5 0%, #ffffff 100%);

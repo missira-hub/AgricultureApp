@@ -18,7 +18,7 @@ class CartController extends Controller
     }
 
     // List all cart items for the logged-in consumer
-   public function index(Request $request)
+  public function index(Request $request)
 {
     $this->authorizeConsumer();
 
@@ -39,15 +39,16 @@ class CartController extends Controller
         $lineTotal = $item->product->price * $item->quantity;
         $totalCartValue += $lineTotal;
 
-       $formattedCart[] = [
-    'id' => $item->id,  // Add this line!
-    'product_id' => $item->product->id,
-    'name' => $item->product->name,
-    'quantity' => $item->quantity,
-    'unit_price' => $item->product->price,
-    'total_price' => $lineTotal
-];
-
+        $formattedCart[] = [
+            'id' => $item->id,
+            'product_id' => $item->product->id,
+            'name' => $item->product->name,
+            'description' => $item->product->description,   // Add description
+            'quantity' => $item->quantity,
+            'unit_price' => $item->product->price,
+            'total_price' => $lineTotal,
+            'image' => $item->product->image,               // Add image path here
+        ];
     }
 
     return response()->json([
@@ -56,7 +57,6 @@ class CartController extends Controller
         'total_cart_value' => $totalCartValue
     ]);
 }
-
 
     // Add product to cart for logged-in consumer
     public function store(Request $request)
@@ -159,5 +159,21 @@ class CartController extends Controller
         'message' => 'Cart cleared successfully'
     ]);
 }
+public function getTotal(Request $request)
+{
+    $user = $request->user();
+
+    // Load cart items with related product data
+    $cartItems = $user->cartItems()->with('product')->get();
+
+    // Sum the total safely (only if product exists)
+    $total = $cartItems->sum(function ($cart) {
+        return $cart->product ? $cart->product->price * $cart->quantity : 0;
+    });
+
+    return response()->json(['total' => $total]);
+}
+
+
 
 }

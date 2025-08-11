@@ -9,7 +9,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@kurkle/color": "^0.4.0",
+    "@stripe/stripe-js": "^7.7.0",
     "axios": "^1.10.0",
+    "chart.js": "^4.5.0",
+    "date-fns": "^4.1.0",
     "laravel-echo": "^2.1.6",
     "pinia": "^3.0.3",
     "pusher-js": "^8.4.0",

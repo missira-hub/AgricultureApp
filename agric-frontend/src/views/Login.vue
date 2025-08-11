@@ -5,10 +5,21 @@
       <div class="login-card">
         <h2>Welcome Back 👋</h2>
         <p class="subtitle">Login to your account</p>
+
         <form @submit.prevent="login">
           <input v-model="email" type="email" placeholder="Email address" required />
           <input v-model="password" type="password" placeholder="Password" required />
+
+          <!-- Error Message -->
+          <p v-if="errorMessage" class="error-msg">{{ errorMessage }}</p>
+
           <button type="submit">Login</button>
+
+          <!-- Forgot Password -->
+          <p class="forgot-password">
+            <a href="#" @click.prevent="handleForgotPassword">Forgot password?</a>
+          </p>
+
           <p class="switch-link">
             Don’t have an account?
             <router-link to="/register">Register here</router-link>
@@ -26,12 +37,15 @@ export default {
   data() {
     return {
       email: '',
-      password: ''
+      password: '',
+      errorMessage: '',
     };
   },
   methods: {
     async login() {
       try {
+        this.errorMessage = '';
+
         const res = await axios.post('http://127.0.0.1:8000/api/login', {
           email: this.email,
           password: this.password,
@@ -48,20 +62,57 @@ export default {
         } else {
           this.$router.push('/consumer/dashboard');
         }
-
       } catch (error) {
-        if (error.response?.data?.message) {
-          alert(`Login failed: ${error.response.data.message}`);
+        if (error.response && error.response.status === 401) {
+          this.errorMessage = 'Invalid email or password.';
         } else {
-          alert('Login failed: An unknown error occurred.');
+          this.errorMessage = 'Something went wrong. Please try again later.';
         }
       }
-    }
-  }
+    },
+    async handleForgotPassword() {
+      if (!this.email) {
+        this.errorMessage = 'Please enter your email to reset your password.';
+        return;
+      }
+
+      try {
+        this.errorMessage = '';
+        await axios.post('http://127.0.0.1:8000/api/password/forgot', {
+          email: this.email,
+        });
+        this.errorMessage = 'Password recovery email sent.';
+      } catch (err) {
+        this.errorMessage =
+          'Failed to send recovery email. Make sure the email is correct.';
+      }
+    },
+  },
 };
+
 </script>
 
 <style scoped>
+.error-msg {
+  color: red;
+  font-size: 0.9rem;
+  margin-top: -10px;
+  margin-bottom: -5px;
+  text-align: left;
+}
+
+.forgot-password {
+  text-align: right;
+  font-size: 0.85rem;
+  margin-top: -0.5rem;
+}
+
+.forgot-password a {
+  color: #0da57a;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .login-page {
   position: fixed;
   top: 0;

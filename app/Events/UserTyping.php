@@ -4,6 +4,7 @@ namespace App\Events;
 
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
+use Illuminate\Broadcasting\PresenceChannel;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
@@ -22,20 +23,21 @@ class UserTyping implements ShouldBroadcast
         $this->receiverId = $receiverId;
     }
 
-    public function broadcastOn(): Channel
+    public function broadcastOn()
     {
         return new PrivateChannel('chat.' . $this->receiverId);
     }
 
-    public function broadcastWith(): array
+    public function broadcastAs()
+    {
+        return 'user.typing';
+    }
+
+    public function broadcastWith()
     {
         return [
             'sender_id' => $this->senderId,
+            'receiver_id' => $this->receiverId,
         ];
-    }
-
-    public function broadcastAs(): string
-    {
-        return 'user.typing';
     }
 }

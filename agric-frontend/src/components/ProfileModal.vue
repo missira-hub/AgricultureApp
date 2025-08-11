@@ -5,15 +5,6 @@
       <h2>Edit Profile</h2>
 
       <form @submit.prevent="updateProfile" enctype="multipart/form-data">
-        <div class="avatar-wrapper">
-          <img v-if="previewAvatar" :src="previewAvatar" class="avatar" />
-          <div v-else class="avatar-placeholder">{{ userInitial }}</div>
-          <label class="upload-btn">
-            Change Avatar
-            <input type="file" @change="handleFileChange" hidden />
-          </label>
-        </div>
-
         <label>
           Name:
           <input v-model="form.name" type="text" required />
@@ -25,11 +16,27 @@
         </label>
 
         <label>
-          Change Password:
+          New Password:
           <input v-model="form.password" type="password" placeholder="Leave blank to keep current" />
         </label>
 
-        <button type="submit">Update Profile</button>
+        <label>
+          Confirm Password:
+          <input v-model="form.password_confirmation" type="password" placeholder="Confirm new password" />
+        </label>
+
+        <label>
+          Change Avatar:
+          <input type="file" @change="handleAvatarChange" accept="image/*" />
+        </label>
+
+        <div v-if="imagePreview" class="avatar-preview">
+          <img :src="imagePreview" alt="Avatar preview" />
+        </div>
+
+        <button type="submit" :disabled="isLoading">
+          {{ isLoading ? 'Updating...' : 'Update Profile' }}
+        </button>
 
         <div v-if="successMessage" class="success">{{ successMessage }}</div>
         <div v-if="errorMessage" class="error">{{ errorMessage }}</div>
@@ -39,7 +46,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, defineEmits, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import axios from 'axios'
 
 const emit = defineEmits(['close', 'updated'])
@@ -47,195 +54,230 @@ const emit = defineEmits(['close', 'updated'])
 const form = ref({
   name: '',
   email: '',
+  avatar: null,
   password: '',
-  avatar: null
+  password_confirmation: ''
 })
-const previewAvatar = ref(null)
+
+const imagePreview = ref('')
+const isLoading = ref(false)
 const successMessage = ref('')
 const errorMessage = ref('')
-const isLoading = ref(true)
 
-const userInitial = computed(() => {
-  return form.value.name?.charAt(0)?.toUpperCase() || 'U'
-})
-
-const fetchProfile = async () => {
+// Fetch current user profile on mount
+onMounted(async () => {
   try {
     const token = localStorage.getItem('token')
     if (!token) throw new Error('No token found')
 
-    const { data } = await axios.get('http://127.0.0.1:8000/api/user', {
+    const response = await axios.get('http://127.0.0.1:8000/api/user/profile', {
       headers: { Authorization: `Bearer ${token}` }
     })
 
-    form.value.name = data.name
-    form.value.email = data.email
-    previewAvatar.value = data.avatar_url || null
-  } catch (err) {
-    errorMessage.value = 'Failed to fetch profile'
-  } finally {
-    isLoading.value = false
-  }
-}
+    const user = response.data
+    form.value.name = user.name || ''
+    form.value.email = user.email || ''
+    imagePreview.value = user.avatar_url
+      ? `http://127.0.0.1:8000/storage/${user.avatar_url}`
+      : ''
 
-const handleFileChange = (e) => {
+  } catch (error) {
+    errorMessage.value = error.response?.data?.message || error.message
+  }
+})
+
+const handleAvatarChange = (e) => {
   const file = e.target.files[0]
   if (file) {
     form.value.avatar = file
-    previewAvatar.value = URL.createObjectURL(file)
+    imagePreview.value = URL.createObjectURL(file)
   }
 }
+
 const updateProfile = async () => {
+  if (isLoading.value) return
+  isLoading.value = true
+  successMessage.value = ''
+  errorMessage.value = ''
+
   try {
     const token = localStorage.getItem('token')
     if (!token) throw new Error('No token found')
 
     const formData = new FormData()
-    formData.append('name', form.value.name)
-    formData.append('email', form.value.email)
+    formData.append('_method', 'PUT') // Laravel spoof method
+
+    // Append name and email only if they are non-empty
+    if (form.value.name) formData.append('name', form.value.name)
+    if (form.value.email) formData.append('email', form.value.email)
 
     if (form.value.password) {
       formData.append('password', form.value.password)
-      formData.append('password_confirmation', form.value.password) // if required
+      formData.append('password_confirmation', form.value.password_confirmation)
     }
 
     if (form.value.avatar) {
       formData.append('avatar', form.value.avatar)
     }
 
-    await axios.post('http://127.0.0.1:8000/api/profile/update', formData, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'multipart/form-data'
+    const response = await axios.post(
+      'http://127.0.0.1:8000/api/user/profile',
+      formData,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        }
       }
-    })
+    )
 
     successMessage.value = 'Profile updated successfully!'
-    errorMessage.value = ''
-    form.value.password = ''
+    emit('updated', {
+      name: response.data.name,
+      email: response.data.email,
+      avatar_url: response.data.avatar_url
+    })
 
-    // Emit event to notify parent that profile was updated
-    emit('updated')
+    form.value.password = ''
+    form.value.password_confirmation = ''
   } catch (err) {
-    errorMessage.value = 'Failed to update profile'
-    successMessage.value = ''
+    console.error(err)
+    errorMessage.value = err.response?.data?.message || err.message
+  } finally {
+    isLoading.value = false
   }
 }
 
-const close = () => emit('close')
-
-onMounted(fetchProfile)
+const close = () => {
+  emit('close')
+}
 </script>
 
+
 <style scoped>
+.modal-content {
+  background: white;
+  padding: 2rem;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 500px;
+  position: relative;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Profile Modal Styles */
+
+.profile-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border-radius: 20px;
+  padding: 2rem;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  z-index: 9999;
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+/* Modal Overlay */
 .modal-overlay {
   position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.6);
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 10;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(5px);
+  z-index: 9998;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
-}
-
-.modal-content {
-  background: #fff;
-  padding: 2rem;
-  border-radius: 16px;
-  width: 100%;
-  max-width: 420px;
-  position: relative;
-  box-shadow: 0 0 20px rgba(0,0,0,0.2);
-  font-family: 'Segoe UI', sans-serif;
 }
 
 .close-btn {
   position: absolute;
-  top: 10px;
-  right: 12px;
+  top: 1rem;
+  right: 1rem;
   background: none;
   border: none;
-  font-size: 26px;
+  font-size: 1.5rem;
   cursor: pointer;
+  color: #666;
+}
+
+h2 {
+  margin-top: 0;
+  color: #333;
+  font-size: 1.5rem;
 }
 
 form label {
   display: block;
-  margin: 1rem 0 0.5rem;
-  font-weight: 600;
+  margin-bottom: 1rem;
+  font-weight: 500;
+  color: #444;
 }
 
 input[type="text"],
 input[type="email"],
-input[type="password"] {
+input[type="password"],
+input[type="file"] {
   width: 100%;
-  padding: 0.6rem;
-  border-radius: 8px;
-  border: 1px solid #ccc;
-  font-size: 14px;
+  padding: 0.5rem;
+  margin-top: 0.25rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
 }
 
 button[type="submit"] {
-  background-color: #22c55e;
+  background-color: #4CAF50;
   color: white;
+  padding: 0.75rem;
   border: none;
-  padding: 0.8rem 1.4rem;
-  border-radius: 8px;
-  margin-top: 1rem;
-  font-weight: bold;
+  border-radius: 4px;
   cursor: pointer;
+  font-size: 1rem;
   width: 100%;
+  margin-top: 1rem;
 }
 
-button:hover {
-  background-color: #16a34a;
+button[type="submit"]:hover {
+  background-color: #45a049;
 }
 
-.avatar-wrapper {
+button[type="submit"]:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
+.avatar-preview {
+  margin: 1rem 0;
   text-align: center;
-  margin-bottom: 1rem;
 }
 
-.avatar {
-  width: 96px;
-  height: 96px;
+.avatar-preview img {
+  width: 100px;
+  height: 100px;
   border-radius: 50%;
   object-fit: cover;
-  margin-bottom: 0.5rem;
-  border: 3px solid #22c55e;
-}
-
-.avatar-placeholder {
-  width: 96px;
-  height: 96px;
-  border-radius: 50%;
-  background-color: #ccc;
-  color: #444;
-  font-size: 36px;
-  font-weight: bold;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto 0.5rem;
-}
-
-.upload-btn {
-  display: inline-block;
-  background: #f3f4f6;
-  border: 1px solid #ccc;
-  padding: 6px 12px;
-  font-size: 13px;
-  border-radius: 6px;
-  cursor: pointer;
+  border: 3px solid #eee;
 }
 
 .success {
+  color: #28a745;
   margin-top: 1rem;
-  color: green;
+  text-align: center;
 }
 
 .error {
+  color: #dc3545;
   margin-top: 1rem;
-  color: red;
+  text-align: center;
 }
 </style>

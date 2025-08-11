@@ -57,18 +57,33 @@ public function receivedFeedback()
 }
 public function conversations()
 {
-    return $this->belongsToMany(Conversation::class)
-        ->withPivot('last_read_at', 'is_hidden')
-        ->withTimestamps();
+    return $this->belongsToMany(Conversation::class, 'conversation_user')
+                ->withPivot('last_read_at', 'is_hidden')
+                ->withTimestamps();
 }
 
 public function messages()
 {
-    return $this->hasMany(Message::class);
+    return $this->hasMany(Message::class, 'sender_id');
 }
+
 public function cart()
 {
     return $this->hasMany(Cart::class);
+}
+public function cartItems() {
+    return $this->hasMany(Cart::class); // or your cart model
+}
+public function consumer() {
+    return $this->hasOne(Consumer::class);
+}
+
+public function farmer() {
+    return $this->hasOne(Farmer::class);
+}
+
+public function admin() {
+    return $this->hasOne(Admin::class);
 }
 
 }

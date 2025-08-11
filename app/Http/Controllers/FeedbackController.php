@@ -20,6 +20,7 @@ class FeedbackController extends Controller
 
         $userId = Auth::id();
 
+        // Check if user already left feedback for this product
         $exists = Feedback::where('user_id', $userId)
             ->where('product_id', $request->product_id)
             ->exists();
@@ -33,34 +34,48 @@ class FeedbackController extends Controller
             'product_id' => $request->product_id,
             'rating'     => $request->rating,
             'comment'    => $request->comment,
+            'approved'   => false, // set false initially for moderation
         ]);
 
         return response()->json([
             'message' => 'Feedback submitted. Awaiting approval.',
-            'data'    => $feedback
+            'data'    => $feedback,
         ]);
     }
 
-    // 2. Update feedback (only if you're the owner)
-    public function update(Request $request, Feedback $feedback)
-    {
-        if ($feedback->user_id !== Auth::id()) {
-            return response()->json(['message' => 'Unauthorized.'], 403);
-        }
-
-        $request->validate([
-            'rating'  => 'required|integer|min:1|max:5',
-            'comment' => 'required|string',
-        ]);
-
-        $feedback->update($request->only(['rating', 'comment']));
-
-        return response()->json(['message' => 'Feedback updated.', 'data' => $feedback]);
+    // 2. Update feedback (only if owner)
+  public function update(Request $request, Feedback $feedback)
+{
+    if ($feedback->user_id !== Auth::id()) {
+        return response()->json(['message' => 'Unauthorized.'], 403);
     }
 
-    // 3. Delete feedback
-    public function destroy(Feedback $feedback)
+    // 🚨 Block update if farmer already replied
+    if ($feedback->reply) {
+        return response()->json([
+            'message' => 'You cannot edit this review because the farmer has already replied.'
+        ], 403);
+    }
+
+    $request->validate([
+        'rating'  => 'required|integer|min:1|max:5',
+        'comment' => 'required|string',
+    ]);
+
+    $feedback->update($request->only(['rating', 'comment']));
+
+    return response()->json([
+        'message' => 'Feedback updated.',
+        'data'    => $feedback
+    ]);
+}
+
+
+    // 3. Delete feedback (only if owner)
+    public function destroy($id)
     {
+        $feedback = Feedback::findOrFail($id);
+
         if ($feedback->user_id !== Auth::id()) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
@@ -73,11 +88,9 @@ class FeedbackController extends Controller
     // 4. View approved feedback for a product
     public function productFeedback($productId)
     {
-        $product = Product::findOrFail($productId);
-
         $feedback = Feedback::where('product_id', $productId)
             ->where('approved', true)
-            ->with('user:id,name') // eager-load user name
+            ->with('user:id,name') // load reviewer name
             ->latest()
             ->paginate(10);
 
@@ -88,8 +101,8 @@ class FeedbackController extends Controller
                 'total'        => $feedback->total(),
                 'per_page'     => $feedback->perPage(),
                 'current_page' => $feedback->currentPage(),
-                'last_page'    => $feedback->lastPage()
-            ]
+                'last_page'    => $feedback->lastPage(),
+            ],
         ]);
     }
 
@@ -101,17 +114,19 @@ class FeedbackController extends Controller
         $feedback = Feedback::whereHas('product', function ($q) use ($farmer) {
             $q->where('user_id', $farmer->id);
         })
-            ->with('user:id,name', 'product:id,name') // optional details
-            ->latest()
-            ->paginate(10);
+        ->with('user:id,name', 'product:id,name')
+        ->latest()
+        ->paginate(10);
 
         return response()->json($feedback);
     }
 
     // 6. Farmer approves feedback
-    public function approve(Request $request, Feedback $feedback)
+    public function approve(Request $request, $id)
     {
-        if ($feedback->product->user_id !== Auth::id()) {
+        $feedback = Feedback::with('product')->findOrFail($id);
+
+        if (!$feedback->product || $feedback->product->user_id !== Auth::id()) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
@@ -122,17 +137,86 @@ class FeedbackController extends Controller
     }
 
     // 7. Farmer replies to feedback
-    public function reply(Request $request, Feedback $feedback)
+  public function reply(Request $request, $id)
+{
+    $request->validate([
+        'reply' => 'required|string|max:1000',
+    ]);
+
+
+   $feedback = Feedback::find($id);
+if (!$feedback) {
+    return response()->json(['message' => 'Feedback not found'], 404);
+}
+
+$product = Product::find($feedback->product_id);
+if (!$product) {
+    return response()->json(['message' => 'Product not found'], 404);
+}
+
+if ($product->user_id !== $request->user()->id) {
+    return response()->json(['message' => 'Unauthorized'], 403);
+}
+
+
+    $feedback->reply = $request->reply;
+    $feedback->save();
+
+    return response()->json(['message' => 'Reply saved', 'reply' => $feedback->reply]);
+}
+
+
+    // 8. View all approved feedback across the system
+    public function allApproved()
     {
-        if ($feedback->product->user_id !== Auth::id()) {
-            return response()->json(['message' => 'Unauthorized.'], 403);
+        $feedback = Feedback::where('approved', true)
+            ->with('user:id,name', 'product:id,name')
+            ->latest()
+            ->paginate(15);
+
+        return response()->json([
+            'feedback'   => $feedback->items(),
+            'pagination' => [
+                'total'        => $feedback->total(),
+                'per_page'     => $feedback->perPage(),
+                'current_page' => $feedback->currentPage(),
+                'last_page'    => $feedback->lastPage(),
+            ],
+        ]);
+    }
+
+    // 9. View reviews submitted by the current authenticated user
+    public function userReviews()
+{
+    $user = Auth::user();
+
+    if (!$user) {
+        return response()->json(['error' => 'Unauthenticated'], 401);
+    }
+
+    $reviews = Feedback::where('user_id', $user->id)
+        ->with(['product.user:id,name'])  // eager load farmer user on product
+        ->get();
+
+    return response()->json($reviews);
+}
+
+
+
+
+     public function index(Request $request)
+    {
+        try {
+            $feedbacks = Feedback::with(['user', 'product'])
+                ->orderBy('created_at', 'desc')
+                ->paginate(10);
+
+            return response()->json($feedbacks);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to fetch feedback.',
+                'error' => $e->getMessage(),
+            ], 500);
         }
-
-        $request->validate(['reply' => 'required|string']);
-
-        $feedback->reply = $request->reply;
-        $feedback->save();
-
-        return response()->json(['message' => 'Reply added.', 'data' => $feedback]);
     }
 }

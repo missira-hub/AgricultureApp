@@ -8,12 +8,17 @@ use Illuminate\Database\Eloquent\Model;
 use App\Models\User;
 use App\Models\OrderItem;
 use App\Models\Feedback;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
 
 class Product extends Model
 {
     use HasFactory, SoftDeletes;
 
-   protected $fillable = ['name', 'description', 'price', 'quantity', 'image'];
+    protected $fillable = [
+        'name', 'description', 'price', 'quantity', 
+        'image_url', 'category_id', 'farmer_id'
+    ];
 
 
     protected $hidden = ['deleted_at'];
@@ -30,10 +35,11 @@ class Product extends Model
     /**
      * Alias for farmer (optional, same as user).
      */
-    public function farmer()
-    {
-        return $this->belongsTo(User::class, 'user_id');
-    }
+public function farmer()
+{
+    return $this->belongsTo(User::class, 'farmer_id');
+}
+
 
     /**
      * All feedback for this product.
@@ -50,4 +56,16 @@ class Product extends Model
     {
         return $this->hasMany(OrderItem::class);
     }
+   // At the top, make sure this is imported:
+
+public function category(): BelongsTo
+{
+    return $this->belongsTo(Category::class);
+}
+public function unit()
+{
+    return $this->belongsTo(Unit::class);
+}
+
+
 }

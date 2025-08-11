@@ -7,11 +7,11 @@ return [
     'connections' => [
 'pusher' => [
     'driver' => 'pusher',
-    'key' => env('PUSHER_APP_KEY'),
-    'secret' => env('PUSHER_APP_SECRET'),
-    'app_id' => env('PUSHER_APP_ID'),
+    'key' => env('06854e67a611b7a83a0c'),
+    'secret' => env('a272cf9f71ca74ba5244'),
+    'app_id' => env('2017310'),
     'options' => [
-        'cluster' => env('PUSHER_APP_CLUSTER'),
+        'cluster' => env('eu'),
         'useTLS' => true,
     
 ],

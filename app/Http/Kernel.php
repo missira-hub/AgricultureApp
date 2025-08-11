@@ -23,9 +23,6 @@ class Kernel extends HttpKernel
         \App\Http\Middleware\TrimStrings::class,
         \Illuminate\Foundation\Http\Middleware\ConvertEmptyStringsToNull::class,
         \App\Http\Middleware\CorsMiddleware::class,
-
-
-        
     ];
 
     /**
@@ -50,6 +47,8 @@ class Kernel extends HttpKernel
             'throttle:api',
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
             'role' => \App\Http\Middleware\RoleMiddleware::class,
+           \App\Http\Middleware\RoleMiddleware::class,  // <--- no key, just class string
+        \Illuminate\Routing\Middleware\SubstituteBindings::class,
 
         ],
     ];
@@ -73,6 +72,7 @@ class Kernel extends HttpKernel
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
         'check.role' => \App\Http\Middleware\RoleMiddleware::class,
         'role' => \App\Http\Middleware\RoleMiddleware::class,
+    'admin' => \App\Http\Middleware\AdminMiddleware::class,
 
     ];
 }

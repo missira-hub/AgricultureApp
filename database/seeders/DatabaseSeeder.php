@@ -15,9 +15,10 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             UserSeeder::class,
+            UnitSeeder::class,
+            CategoriesTableSeeder::class,
         ]);
     
-
         User::factory()->create([
             'name' => 'Test User',
             'email' => 'test@example.com',
@@ -48,4 +49,5 @@ class DatabaseSeeder extends Seeder
             'role' => 'consumer',
         ]);
     }
-}
+    }
+

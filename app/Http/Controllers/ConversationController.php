@@ -3,109 +3,146 @@
 namespace App\Http\Controllers;
 
 use App\Models\Conversation;
-use App\Models\Message;
-use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use App\Events\NewMessage;
 
 class ConversationController extends Controller
 {
- 
-public function index(Request $request)
-{
-    $userId = Auth::id(); // ✅ Get the logged-in user's ID
+    // ✅ Get all conversations for the authenticated user
+    public function index()
+    {
+        $user = Auth::user();
 
-    // Now you can safely use $userId
-    $messages = Message::where('sender_id', $userId)
-                       ->orWhere('receiver_id', $userId)
-                       ->get();
+        $conversations = $user->conversations()
+            ->with([
+                'users:id,name', // Only load name
+                'messages' => fn($q) => $q->latest()->limit(1)->with('sender:id,name') // last message
+            ])
+            ->get()
+            ->map(function ($conv) use ($user) {
+                $otherUser = $conv->users->first(fn($u) => $u->id !== $user->id) ?? $conv->users->first();
 
-    return response()->json($messages);
-}
+                return [
+                    'id' => $conv->id,
+                    'subject' => $conv->subject,
+                    'last_message_at' => $conv->messages->first()?->created_at,
+                    'with_farmer' => $otherUser ? [
+                        'id' => $otherUser->id,
+                        'name' => $otherUser->name,
+                    ] : null,
+                    'last_message' => $conv->messages->first() ? [
+                        'id' => $conv->messages->first()->id,
+                        'text' => $conv->messages->first()->message,
+                        'sender_id' => $conv->messages->first()->sender_id,
+                        'created_at' => $conv->messages->first()->created_at,
+                    ] : null,
+                ];
+            });
 
-    public function store(Request $request)
+        return response()->json($conversations);
+    }
+
+    // ✅ Get all messages in a conversation
+    public function messages($conversationId)
+    {
+        $conversation = Conversation::findOrFail($conversationId);
+
+        // Check if user is part of the conversation
+        if (!$conversation->users->contains(Auth::id())) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $messages = $conversation->messages()
+            ->with('sender:id,name')
+            ->orderBy('created_at', 'asc')
+            ->get()
+            ->map(function ($msg) {
+                return [
+                    'id' => $msg->id,
+                    'message' => $msg->message,
+                    'sender_id' => $msg->sender_id,
+                    'sender_name' => $msg->sender->name,
+                    'created_at' => $msg->created_at->toISOString(),
+                ];
+            });
+
+        // Mark messages as read
+        $conversation->messages()
+            ->where('sender_id', '!=', Auth::id())
+            ->where('is_read', false)
+            ->update(['is_read' => true]);
+
+        return response()->json($messages);
+    }
+
+    // ✅ Start a new conversation
+    public function startChat(Request $request)
     {
         $request->validate([
-            'recipient_id' => 'required|exists:users,id',
-            'product_id' => 'nullable|exists:products,id',
-            'message' => 'required|string|max:2000',
+            'user_id' => 'required|exists:users,id',
             'subject' => 'nullable|string|max:255'
         ]);
 
-        // Prevent messaging yourself
-        if ($request->recipient_id == Auth::id()) {
-            return response()->json(['error' => 'Cannot message yourself'], 422);
+        $existing = Conversation::whereHas('users', function ($q) {
+            $q->where('user_id', Auth::id());
+        })->whereHas('users', function ($q) use ($request) {
+            $q->where('user_id', $request->user_id);
+        })->first();
+
+        if ($existing) {
+            return response()->json($existing);
         }
 
-        // Check for existing conversation
-        $existingConversation = Auth::user()->conversations()
-            ->whereHas('users', function($query) use ($request) {
-                $query->where('user_id', $request->recipient_id);
-            })
-            ->when($request->product_id, function($query, $productId) {
-                $query->where('product_id', $productId);
-            })
-            ->first();
+        $conversation = new Conversation(['subject' => $request->subject]);
+        $conversation->save();
+        $conversation->users()->attach([Auth::id(), $request->user_id]);
 
-        if ($existingConversation) {
-            $conversation = $existingConversation;
-        } else {
-            $conversation = Conversation::create([
-                'subject' => $request->subject ?? 'New Conversation',
-                'product_id' => $request->product_id
-            ]);
+        return response()->json($conversation, 201);
+    }
 
-            $conversation->addParticipants([Auth::id(), $request->recipient_id]);
-        }
-
-        // Create the message
-        $message = $conversation->messages()->create([
-            'user_id' => Auth::id(),
-            'body' => $request->message
+    // ✅ Send a message
+    public function sendMessage(Request $request, $conversationId)
+    {
+        $request->validate([
+            'message' => 'required|string|max:1000'
         ]);
 
-        // Broadcast the message
-        broadcast(new NewMessage($message))->toOthers();
+        $conversation = Conversation::findOrFail($conversationId);
 
-        // Send notification
-        $recipient = User::find($request->recipient_id);
-        $recipient->notify(new \App\Notifications\NewMessageNotification($message));
+        if (!$conversation->users->contains(Auth::id())) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $message = $conversation->messages()->create([
+            'sender_id' => Auth::id(),
+            'message' => $request->message,
+            'is_read' => false,
+        ]);
+
+        $message->load('sender:id,name'); // Load sender info
 
         return response()->json([
-            'conversation' => $conversation->load('users', 'product'),
-            'message' => $message
+            'id' => $message->id,
+            'message' => $message->message,
+            'sender_id' => $message->sender_id,
+            'sender_name' => $message->sender->name,
+            'created_at' => $message->created_at->toISOString(),
         ], 201);
     }
 
-    public function show(Conversation $conversation)
+    // ✅ Mark as read
+    public function markAsRead($conversationId)
     {
-        $this->authorize('view', $conversation);
+        $conversation = Conversation::findOrFail($conversationId);
 
-        $messages = $conversation->messages()
-            ->with('user')
-            ->orderBy('created_at', 'desc')
-            ->paginate(20);
+        if (!$conversation->users->contains(Auth::id())) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
 
-        // Mark as read
-        $conversation->users()->updateExistingPivot(Auth::id(), [
-            'last_read_at' => now()
-        ]);
+        $conversation->messages()
+            ->where('sender_id', '!=', Auth::id())
+            ->update(['is_read' => true]);
 
-        return response()->json([
-            'conversation' => $conversation->load('users', 'product'),
-            'messages' => $messages
-        ]);
-    }
-
-    public function markAsRead(Conversation $conversation)
-    {
-        $this->authorize('view', $conversation);
-
-        $conversation->users()->updateExistingPivot(Auth::id(), [
-            'last_read_at' => now()
-        ]);
-
-        return response()->json(['success' => true]);
+        return response()->json(['status' => 'read']);
     }
 }

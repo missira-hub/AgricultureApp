@@ -3,32 +3,21 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Models\User;     // import User
+use App\Models\Product;  // import Product
 
 class Feedback extends Model
 {
-    use HasFactory;
+    protected $fillable = ['product_id', 'user_id', 'rating', 'comment'];
 
-    protected $fillable = [
-        'user_id',
-        'product_id',
-        'rating',
-        'comment',
-        'reply',
-        'approved',
-    ];
+    // Automatically eager load user (reviewer) and product with farmer when fetching feedback
+    protected $with = ['user', 'product.user'];
 
-    /**
-     * The consumer who wrote the feedback.
-     */
     public function user()
     {
         return $this->belongsTo(User::class);
     }
 
-    /**
-     * The product being reviewed.
-     */
     public function product()
     {
         return $this->belongsTo(Product::class);
