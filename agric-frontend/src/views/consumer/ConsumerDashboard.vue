@@ -101,34 +101,38 @@
     <p>Loading...</p>
   </div>
 
-
+  
+<!-- MESSAGES SECTION -->
 <section v-if="section === 'messages'" class="messaging-section">
   <div class="messaging-container">
-    <!-- Conversations List -->
+    <!-- Conversations List (Left Sidebar) -->
     <div class="conversation-list">
       <div class="conversation-header">
         <h3>Messages</h3>
         <div class="search-conversations">
-          <input 
-            type="text" 
-            placeholder="Search conversations..." 
-            @input="searchConversations"
+          <input
             v-model="conversationSearchQuery"
+            type="text"
+            placeholder="Search conversations..."
+            @input="searchConversations"
           />
         </div>
       </div>
-      
+
+      <!-- Loading State -->
       <div v-if="loadingConversations" class="loading-state">
         <p>Loading conversations...</p>
       </div>
-      
+
+      <!-- Empty State -->
       <div v-else-if="filteredConversations.length === 0" class="empty-state">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
         </svg>
         <p>No conversations found</p>
       </div>
-      
+
+      <!-- Conversations List -->
       <ul v-else class="conversations-list">
         <li
           v-for="conv in filteredConversations"
@@ -137,55 +141,54 @@
           :class="['conversation-item', { active: currentConversation?.id === conv.id }]"
         >
           <div class="conversation-info">
-            <div class="avatar-wrapper">
-              <img
-                :src="conv.avatarUrl || '/default-avatar.png'"
-                alt="Avatar"
-                class="avatar"
-              />
-              <span v-if="conv.unread_count > 0" class="unread-badge">{{ conv.unread_count }}</span>
-            </div>
-            
+            <img
+              :src="conv.avatarUrl || '/default-avatar.png'"
+              alt="Avatar"
+              class="conversation-avatar"
+            />
             <div class="conversation-details">
               <div class="conversation-header-row">
                 <strong class="conversation-title">{{ getConversationTitle(conv) }}</strong>
-                <span class="timestamp">{{ formatTime(conv.lastMessageCreatedAt) }}</span>
+                <span class="timestamp">{{ conv.lastMessageCreatedAt ? formatTime(conv.lastMessageCreatedAt) : '' }}</span>
               </div>
               <p class="last-message">{{ getLastMessagePreview(conv) }}</p>
             </div>
-            
-            <div v-if="conv.unread_count > 0" class="unread-indicator"></div>
+            <div v-if="conv.unread_count > 0" class="unread-indicator">
+              {{ conv.unread_count > 9 ? '9+' : conv.unread_count }}
+            </div>
           </div>
         </li>
       </ul>
     </div>
 
-    <!-- Chat Area -->
+    <!-- Chat Area (Right Side) -->
     <div class="chat-area">
+      <!-- Placeholder -->
       <div v-if="!currentConversation" class="select-conversation">
         <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
         </svg>
         <h3>Select a conversation</h3>
-        <p>Choose a conversation from the list to start messaging</p>
+        <p>Start messaging your contacts</p>
       </div>
-      
+
+      <!-- Active Chat -->
       <div v-else>
+        <!-- Chat Header -->
         <div class="chat-header">
           <div class="header-left">
             <img
               :src="currentConversation.avatarUrl || '/default-avatar.png'"
-              alt="Avatar"
+              alt="Contact"
               class="header-avatar"
             />
             <div class="header-info">
               <h4>{{ getConversationTitle(currentConversation) }}</h4>
-              <p v-if="currentConversation.lastSeen" class="status">
+              <p class="status">
                 {{ currentConversation.isOnline ? 'Online' : `Last seen ${formatTime(currentConversation.lastSeen)}` }}
               </p>
             </div>
           </div>
-          
           <div class="header-actions">
             <button class="action-button">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -194,87 +197,122 @@
             </button>
             <button class="action-button">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <circle cx="12" cy="12" r="1"></circle>
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"></path>
-                <path d="M12 6v6l4 2"></path>
+                <circle cx="12" cy="12" r="1"/>
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
+                <path d="M12 6v6l4 2"/>
               </svg>
             </button>
           </div>
         </div>
-        
-        <div class="messages-container" ref="messagesContainer">
-          <div v-if="loadingMessages" class="loading-state">
+
+        <!-- Messages Container -->
+        <div
+          class="messages-container"
+          ref="messagesContainer"
+          @scroll.passive="handleScroll"
+        >
+          <!-- Loading More Messages (top) -->
+          <div v-if="loadingMoreMessages" class="loading-more-messages">
             <div class="loading-spinner"></div>
-            <p>Loading messages...</p>
+            <p>Loading older messages...</p>
           </div>
-          
-          <div v-else-if="currentConversation.messages.length === 0" class="empty-state">
+
+          <!-- No Messages Yet -->
+          <div v-else-if="hasNoMessages" class="empty-state">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
             </svg>
             <p>No messages yet</p>
             <small>Start the conversation</small>
           </div>
-          
-          <div v-else class="messages-list">
-            <div 
-              v-for="message in currentConversation.messages" 
+
+          <!-- Message List -->
+          <div v-else-if="!loadingMessages" class="messages-list">
+            <div
+              v-for="message in currentConversation.messages"
               :key="message.id"
-              class="message-group"
-              :class="{ 'current-user': message.sender_id === user.id }"
+              class="message-wrapper"
+              :class="{ sent: message.sender_id === userId, received: message.sender_id !== userId }"
             >
-              <div class="message-sender" v-if="showSenderInfo(message)">
-                <img 
-                  :src="getMessageSenderAvatar(message)" 
-                  alt="Sender" 
-                  class="sender-avatar" 
-                />
-                <span class="sender-name">{{ getMessageSenderName(message) }}</span>
-              </div>
-              
-              <div
-                class="message-bubble"
-                :class="{ 'my-message': message.sender_id === user.id }"
-              >
+              <!-- Received Message -->
+              <div v-if="message.sender_id !== userId" class="received-message">
+               <!-- Show sender avatar only for RECEIVED messages -->
+<div v-if="message.sender_id !== userId" class="received-message">
+  <img
+    :src="message.sender_avatar || '/default-avatar.png'"
+    :alt="message.sender_name"
+    class="sender-avatar"
+  />
+  <div class="message-content">
+    <div class="message-bubble received">
+      <!-- Optional: Show sender name above message -->
+      <strong class="sender-name">{{ message.sender_name }}</strong>
+      <p>{{ message.message }}</p>
+      <div class="message-meta">
+        <span class="timestamp">{{ formatTime(message.created_at) }}</span>
+      </div>
+    </div>
+  </div>
+</div>
                 <div class="message-content">
-                  <p>{{ message.message }}</p>
-                  <div class="message-meta">
-                    <small class="timestamp">{{ formatTime(message.created_at) }}</small>
-                    <div v-if="message.sender_id === user.id" class="message-status">
-                      <svg v-if="message.status === 'sent'" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path d="M5 13l4 4L19 7"></path>
-                      </svg>
-                      <svg v-else-if="message.status === 'delivered'" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path d="M5 13l4 4L19 7"></path>
-                      </svg>
-                      <svg v-else width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path d="M5 13l4 4L19 7"></path>
-                      </svg>
+                  <div class="message-bubble received">
+                    <p>{{ message.message }}</p>
+                    <div class="message-meta">
+                      <span class="timestamp">{{ formatTime(message.created_at) }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Sent Message -->
+              <div v-else class="sent-message">
+                <div class="message-content">
+                  <div class="message-bubble sent">
+                    <p>{{ message.message }}</p>
+                    <div class="message-meta">
+                      <span class="timestamp">{{ formatTime(message.created_at) }}</span>
+                      <span class="message-status">
+                        <svg v-if="message.status === 'pending'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                          <path d="M16 8v8l-8-4 8-4z"/>
+                        </svg>
+                        <svg v-else-if="message.status === 'sent'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                          <path d="M5 13l4 4L19 7"/>
+                        </svg>
+                        <svg v-else-if="message.status === 'delivered'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                          <path d="M5 13l4 4L19 7" stroke-width="2"/>
+                        </svg>
+                      </span>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
+
+          <!-- Initial Loading -->
+          <div v-if="loadingMessages && !hasNoMessages" class="loading-state">
+            <p>Loading messages...</p>
+          </div>
         </div>
-        
+
+        <!-- Message Input -->
         <div class="message-input">
           <div class="input-actions">
             <button class="emoji-button">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <circle cx="12" cy="12" r="10"></circle>
-                <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
-                <line x1="9" y1="9" x2="9.01" y2="9"></line>
-                <line x1="15" y1="9" x2="15.01" y2="9"></line>
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
+                <line x1="9" y1="9" x2="9.01" y2="9"/>
+                <line x1="15" y1="9" x2="15.01" y2="9"/>
               </svg>
             </button>
             <button class="attachment-button">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.19 9.19a2 2 0 0 1-2.83-2.83l9.19-9.19"></path>
+                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.19 9.19a2 2 0 0 1-2.83-2.83l9.19-9.19"/>
               </svg>
             </button>
           </div>
-          
+
           <div class="input-wrapper">
             <input
               v-model="newMessage"
@@ -283,16 +321,16 @@
               @focus="markConversationAsRead"
             />
           </div>
-          
-          <button 
-            @click="sendMessage" 
+
+          <button
+            @click="sendMessage"
             :disabled="!newMessage.trim()"
             class="send-button"
             :class="{ active: newMessage.trim() }"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <line x1="22" y1="2" x2="11" y2="13"></line>
-              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+              <line x1="22" y1="2" x2="11" y2="13"/>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"/>
             </svg>
           </button>
         </div>
@@ -787,18 +825,126 @@ axios.defaults.baseURL = 'http://127.0.0.1:8000'
 const router = useRouter()
 const counter = ref(0)
 
+
+const section = ref("market");      
+
+const switchSection = async (target) => {
+  section.value = target;            
+  globalError.value = null;
+
+  if (target === "market") await fetchProducts();
+  if (target === "cart") await fetchCart();
+  if (target === "orders") await fetchOrders();
+  if (target === "payment") await fetchCartTotal();
+
+ if (target === 'messages') {
+    loading.value = true
+    await loadConversations()
+    loading.value = false
+  }
+};
+
+
 watch(counter, (newVal, oldVal) => {
   console.log(`Counter changed from ${oldVal} to ${newVal}`)
 })
 
-// --- Messaging State ---
-const loadingConversations = ref(false)
-const loadingMessages = ref(false)
+// --- State (keep your existing state) ---
 const conversations = ref([])
 const currentConversation = ref(null)
 const newMessage = ref('')
+const conversationSearchQuery = ref('')
+const loadingConversations = ref(false)
+const loadingMessages = ref(false)
 
-// --- Load Conversations ---
+// Assume you have userId from auth (replace with real value if available)
+const userId = ref(1) // Set dynamically from auth later
+
+// ✅ ADD: Ref for messages container to control scrolling
+const messagesContainer = ref(null)
+
+// --- Computed Properties (keep existing) ---
+const filteredConversations = computed(() => {
+  const query = conversationSearchQuery.value.trim().toLowerCase()
+  if (!query) return conversations.value
+
+  return conversations.value.filter((conv) => {
+    const title = getConversationTitle(conv).toLowerCase()
+    return title.includes(query)
+  })
+})
+
+const hasNoMessages = computed(() => {
+  const conv = currentConversation.value;
+  if (!conv) return true;
+  const messages = conv.messages;
+  return !messages || !Array.isArray(messages) || messages.length === 0;
+});
+
+// --- Helper Methods (keep existing) ---
+const showSenderInfo = (message) => {
+  return message.sender_id !== userId.value;
+};
+
+const getMessageSenderName = (message) => {
+  return message.sender_name || 'Unknown User';
+};
+
+// ✅ ADD: Scrolling utility functions
+const scrollToBottom = (smooth = true) => {
+  nextTick(() => {
+    const container = messagesContainer.value || document.querySelector('.messages-container');
+    if (container) {
+      if (smooth) {
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior: 'smooth'
+        });
+      } else {
+        container.scrollTop = container.scrollHeight;
+      }
+    }
+  });
+};
+
+const isScrolledToBottom = () => {
+  const container = messagesContainer.value || document.querySelector('.messages-container');
+  if (!container) return true;
+  
+  const threshold = 50; // pixels from bottom
+  return container.scrollHeight - container.scrollTop - container.clientHeight <= threshold;
+};
+
+// ✅ UPDATED: selectConversation with proper scrolling
+const selectConversation = async (conversation) => {
+  console.log('Selecting conversation:', conversation);
+  currentConversation.value = { ...conversation, messages: [] };
+  loadingMessages.value = true;
+
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error('No auth token');
+
+    const res = await axios.get(`/api/conversations/${conversation.id}/messages`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    console.log('Fetched messages:', res.data);
+
+    currentConversation.value.messages = Array.isArray(res.data) ? res.data : [];
+  } catch (err) {
+    console.error('Error loading messages:', err);
+    currentConversation.value.messages = [];
+  } finally {
+    loadingMessages.value = false;
+    
+    // ✅ IMPROVED: Scroll to bottom after messages load
+    await nextTick();
+    scrollToBottom(false); // No smooth scroll on initial load for better UX
+  }
+};
+
+// --- Load Conversations (keep existing) ---
 const loadConversations = async () => {
   loadingConversations.value = true
   try {
@@ -809,275 +955,211 @@ const loadConversations = async () => {
       headers: { Authorization: `Bearer ${token}` }
     })
 
-    // Ensure response is an array and add computed properties
-    const convData = Array.isArray(res.data) ? res.data : []
-    
-    // Enhance conversation data with computed properties
-    conversations.value = convData.map(conv => ({
-      ...conv,
-      title: getConversationTitle(conv),
-      lastMessagePreview: getLastMessagePreview(conv),
-      formattedTime: formatTime(conv.lastMessageCreatedAt)
-    }))
-    
+    console.log('Conversations API Response:', res.data)
+
+    conversations.value = Array.isArray(res.data) ? res.data : []
   } catch (err) {
-    console.error("Error loading conversations:", err)
-    globalError.value = "Failed to load conversations"
+    console.error('Error loading conversations:', err)
+    console.error('Error response:', err.response?.data)
+    conversations.value = []
   } finally {
     loadingConversations.value = false
   }
 }
 
-// --- Select a Conversation ---
-const selectConversation = async (conversation) => {
-  // Reset current conversation with messages array
-  currentConversation.value = { 
-    ...conversation, 
-    messages: [],
-    title: getConversationTitle(conversation),
-    formattedTime: formatTime(conversation.lastMessageCreatedAt)
-  }
-  
-  loadingMessages.value = true
-
-  try {
-    const token = localStorage.getItem('token')
-    const res = await axios.get(`/api/conversations/${conversation.id}/messages`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-
-    // Assign messages safely and enhance with computed properties
-    const messagesData = Array.isArray(res.data) ? res.data : []
-    
-    currentConversation.value.messages = messagesData.map(msg => ({
-      ...msg,
-      formattedTime: formatTime(msg.created_at),
-      isMine: msg.sender_id === user.id
-    }))
-    
-    // Mark conversation as read
-    await markConversationAsRead(conversation.id)
-    
-  } catch (err) {
-    console.error("Error loading messages:", err)
-    globalError.value = "Failed to load messages"
-  } finally {
-    loadingMessages.value = false
-
-    // Scroll to bottom
-    nextTick(() => {
-      const container = document.querySelector('.messages-container')
-      if (container) {
-        container.scrollTop = container.scrollHeight
-      }
-    })
-  }
-}
-
-// --- Send a Message ---
+// ✅ UPDATED: sendMessage with improved scrolling logic
 const sendMessage = async () => {
   if (!newMessage.value.trim() || !currentConversation.value) return
 
   const messageText = newMessage.value.trim()
+  const tempId = Date.now()
   
-  // Optimistically add the message to UI
-  const tempMessage = {
-    id: Date.now(), // Temporary ID
-    message: messageText,
-    sender_id: user.id,
-    created_at: new Date().toISOString(),
-    formattedTime: 'Just now',
-    isMine: true,
-    status: 'sending'
+  // Check if user was at bottom before sending
+  const wasAtBottom = isScrolledToBottom();
+
+  // ✅ Get token
+  const token = localStorage.getItem('token')
+  if (!token) {
+    console.error('No auth token found')
+    return
   }
-  
-  // Add to messages list
+
+  const tempMessage = {
+    id: tempId,
+    message: messageText,
+    sender_id: userId.value,
+    sender_name: 'You', // Add sender name for consistency
+    created_at: new Date().toISOString(),
+    status: 'sending' // Add status for better UX
+  }
+
+  // ✅ Optimistic update
   currentConversation.value.messages.push(tempMessage)
-  
-  // Clear input
   newMessage.value = ''
-  
-  // Scroll to bottom
+
+ const scrollToBottom = (smooth = true) => {
   nextTick(() => {
-    const container = document.querySelector('.messages-container')
+    const container = messagesContainer.value;
     if (container) {
-      container.scrollTop = container.scrollHeight
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior: smooth ? 'smooth' : 'auto'
+      });
     }
-  })
+  });
+};
+
 
   try {
-    const token = localStorage.getItem('token')
-    const conversationId = currentConversation.value.id
-
     const res = await axios.post(
-      `/api/conversations/${conversationId}/send`,
+      `/api/conversations/${currentConversation.value.id}/send`,
       { message: messageText },
-      {
-        headers: { Authorization: `Bearer ${token}` }
-      }
+      { headers: { Authorization: `Bearer ${token}` } }
     )
 
-    // Update the message with server response
-    const messageIndex = currentConversation.value.messages.findIndex(m => m.id === tempMessage.id)
-    if (messageIndex !== -1) {
-      currentConversation.value.messages[messageIndex] = {
+    // ✅ Replace temp message with real one
+    const idx = currentConversation.value.messages.findIndex(m => m.id === tempId)
+    if (idx !== -1) {
+      // Preserve the position and update with server response
+      currentConversation.value.messages[idx] = {
         ...res.data,
-        formattedTime: formatTime(res.data.created_at),
-        isMine: res.data.sender_id === user.id,
         status: 'sent'
-      }
+      };
     }
 
-    // Update conversation list with new message
-    const convIndex = conversations.value.findIndex(c => c.id === conversationId)
-    if (convIndex !== -1) {
-      conversations.value[convIndex] = {
-        ...conversations.value[convIndex],
-        lastMessageCreatedAt: res.data.created_at,
-        formattedTime: formatTime(res.data.created_at),
-        lastMessage: {
-          text: res.data.message,
-          sender_id: res.data.sender_id
-        }
-      }
+    // ✅ Refresh conversation list (to update last message)
+    await loadConversations()
+    
+    // ✅ Ensure we stay scrolled if we were at bottom
+    if (wasAtBottom) {
+      scrollToBottom(true);
     }
-
+    
   } catch (err) {
     console.error('Failed to send message:', err)
-    globalError.value = 'Failed to send message. Please check your connection and try again.'
     
-    // Update message status to indicate failure
-    const messageIndex = currentConversation.value.messages.findIndex(m => m.id === tempMessage.id)
-    if (messageIndex !== -1) {
-      currentConversation.value.messages[messageIndex].status = 'failed'
+    // ✅ IMPROVED: Mark message as failed with retry option
+    const idx = currentConversation.value.messages.findIndex(m => m.id === tempId)
+    if (idx !== -1) {
+      currentConversation.value.messages[idx].status = 'failed'
     }
   }
 }
 
-// --- Mark Conversation as Read ---
-const markConversationAsRead = async (conversationId) => {
-  try {
-    const token = localStorage.getItem('token')
-    await axios.post(
-      `/api/conversations/${conversationId}/read`,
-      {},
-      {
-        headers: { Authorization: `Bearer ${token}` }
-      }
-    )
-    
-    // Update unread count in conversations list
-    const convIndex = conversations.value.findIndex(c => c.id === conversationId)
-    if (convIndex !== -1 && conversations.value[convIndex].unread_count > 0) {
-      conversations.value[convIndex].unread_count = 0
-    }
-    
-  } catch (err) {
-    console.error('Failed to mark conversation as read:', err)
-    // Don't show error to user, just log it
+// ✅ ADD: Mark conversation as read when focused
+const markConversationAsRead = () => {
+  if (!currentConversation.value) return;
+  
+  // You can implement API call to mark as read here
+  // Example:
+  // const token = localStorage.getItem('token');
+  // axios.patch(`/api/conversations/${currentConversation.value.id}/read`, {}, {
+  //   headers: { Authorization: `Bearer ${token}` }
+  // }).catch(err => console.error('Failed to mark as read:', err));
+  
+  // Update local state
+  if (currentConversation.value.unread_count > 0) {
+    currentConversation.value.unread_count = 0;
   }
-}
+};
 
-// --- Format Time Helper ---
+// ✅ ADD: Handle received messages (for real-time updates)
+const handleNewMessage = (message) => {
+  if (!currentConversation.value || message.conversation_id !== currentConversation.value.id) {
+    // Update conversation list for other conversations
+    loadConversations();
+    return;
+  }
+
+  // Check if user was at bottom before new message
+  const wasAtBottom = isScrolledToBottom();
+  
+  // Add message to current conversation
+  currentConversation.value.messages.push(message);
+  
+  // Only auto-scroll if user was already at bottom (good UX practice)
+  if (wasAtBottom) {
+    scrollToBottom(true);
+  }
+};
+
+// ✅ ADD: Auto-scroll on window resize to maintain position
+const handleResize = () => {
+  // Debounce resize events
+  clearTimeout(handleResize.timeoutId);
+  handleResize.timeoutId = setTimeout(() => {
+    if (isScrolledToBottom()) {
+      scrollToBottom(false);
+    }
+  }, 100);
+};
+
+
+// --- Helper Functions (keep existing) ---
 const formatTime = (dateString) => {
   if (!dateString) return ''
-  
   const date = new Date(dateString)
   const now = new Date()
   const diffMs = now - date
   const diffMins = Math.round(diffMs / 60000)
-  const diffHours = Math.round(diffMs / 3600000)
-  const diffDays = Math.round(diffMs / 86400000)
-  
   if (diffMins < 1) return 'Just now'
   if (diffMins < 60) return `${diffMins}m`
+  const diffHours = Math.round(diffMs / 3600000)
   if (diffHours < 24) return `${diffHours}h`
+  const diffDays = Math.round(diffMs / 86400000)
   if (diffDays < 7) return `${diffDays}d`
-  
-  // For older messages, show date
-  return date.toLocaleDateString(undefined, { 
-    month: 'short', 
-    day: 'numeric' 
-  })
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
-// --- Get Conversation Title ---
 const getConversationTitle = (conversation) => {
-  if (conversation.with_farmer) {
-    return conversation.with_farmer.name
-  }
+  if (conversation.with_farmer) return conversation.with_farmer.name
   if (conversation.participants && conversation.participants.length > 0) {
-    // For group conversations, show participant names
     return conversation.participants
-      .filter(p => p.id !== user.id)
+      .filter(p => p.id !== userId.value)
       .map(p => p.name)
       .join(', ')
   }
   return `Conversation #${conversation.id}`
 }
 
-// --- Get Last Message Preview ---
 const getLastMessagePreview = (conversation) => {
-  if (!conversation.lastMessage || !conversation.lastMessage.text) {
-    return 'No messages yet'
+  const lastMsg = conversation.last_message
+  if (!lastMsg || !lastMsg.message) return 'No messages yet'
+  const text = lastMsg.message
+  return text.length > 50 ? text.substring(0, 50) + '...' : text
+}
+
+// ✅ UPDATED: Mount Hook with event listeners
+onMounted(() => {
+  if (section.value === 'messages') {
+    loadConversations()
   }
   
-  const text = conversation.lastMessage.text
-  return text.length > 50 ? `${text.substring(0, 50)}...` : text
-}
-
-// --- Auto-refresh Conversations ---
-let conversationRefreshInterval = null
-
-const startConversationRefresh = () => {
-  // Refresh every 30 seconds
-  conversationRefreshInterval = setInterval(async () => {
-    if (section.value === 'messages') {
-      await loadConversations()
-    }
-  }, 30000)
-}
-
-const stopConversationRefresh = () => {
-  if (conversationRefreshInterval) {
-    clearInterval(conversationRefreshInterval)
-    conversationRefreshInterval = null
-  }
-}
-
-// Start auto-refresh when component is mounted
-onMounted(() => {
-  startConversationRefresh()
+  // Add resize listener for better scrolling behavior
+  window.addEventListener('resize', handleResize);
 })
 
-// Clean up interval when component is unmounted
+// ✅ ADD: Cleanup on unmount
 onUnmounted(() => {
-  stopConversationRefresh()
+  window.removeEventListener('resize', handleResize);
+  clearTimeout(handleResize.timeoutId);
 })
 
-
-
-
-
-// ✅ Second: Define shared state
-const section = ref("market");        // ← This must come BEFORE switchSection
-
-// ✅ Third: Define functions that use it
-const switchSection = async (target) => {
-  section.value = target;             // ✅ Now 'section' is defined
-  globalError.value = null;
-
-  if (target === "market") await fetchProducts();
-  if (target === "cart") await fetchCart();
-  if (target === "orders") await fetchOrders();
-  if (target === "payment") await fetchCartTotal();
-
-  if (target === 'messages') {
-    loading.value = true;
-    await loadConversations();
-    loading.value = false;
+// ✅ ADD: Watch for new messages in current conversation
+watch(
+  () => currentConversation.value?.messages?.length,
+  (newLength, oldLength) => {
+    // Only auto-scroll if messages were added (not initial load)
+    if (oldLength && newLength > oldLength) {
+      const wasAtBottom = isScrolledToBottom();
+      if (wasAtBottom) {
+        nextTick(() => scrollToBottom(true));
+      }
+    }
   }
-};
+);
+
+
 
 const paymentError = ref(null);
 const paymentProcessing = ref(false); // ✅ Define it here
@@ -2162,7 +2244,7 @@ const goToProduct = (product) => {
   color: #64748b;
   width: 100%;
 }
-        /* Product Grid */
+    /* Product Grid */
         .product-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -2216,6 +2298,62 @@ const goToProduct = (product) => {
             line-height: 1.5;
             font-size: 1rem;
         }
+
+        .cart-unit {
+       margin-left: 6px;
+      font-weight: 500;
+      color: #444;
+     }
+
+
+.quantity-cart {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 10px;
+}
+
+.quantity-cart input {
+  width: 47px;
+  padding: 8px 5px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 10x;
+}
+
+.quantity-cart select {
+  padding: 10px 0px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 10px;
+  background-color: white;
+  cursor: pointer;
+  transition: 0.2s ease;
+    width: 56px;
+
+
+}
+
+.quantity-cart select:hover {
+  border-color: #38bff8;
+}
+
+.quantity-cart button {
+  background-color: #2563eb;
+  color: white;
+  padding: 10px 55px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background-color 0.2s ease;
+
+}
+
+.quantity-cart button:hover {
+  background-color: #1d4ed8;
+}
+
 
     
 
@@ -2574,7 +2712,7 @@ const goToProduct = (product) => {
         .qty-btn {
             background: none;
             border: none;
-            padding: 8px 10px;
+            padding: 10px 8px;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -2596,7 +2734,7 @@ const goToProduct = (product) => {
             border: none;
             width: 50px;
             text-align: center;
-            padding: 8px 4px;
+            padding: 8px 8px;
             font-size: 14px;
             background: none;
             outline: none;
@@ -2960,6 +3098,7 @@ body.payment-active {
         padding-top: 150px; /* Adjust for mobile */
     }
 }
+
 .messaging-section {
   display: flex;
   height: 600px; /* or your desired height */
@@ -3249,11 +3388,441 @@ body.payment-active {
 .send-button.active {
   color: #2a7fff;
 }
+.messaging-section {
+  display: flex;
+  height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  margin: 0;
+}
 
+.messaging-container {
+  display: flex;
+  width: 90%;
+  max-width: 1200px;
+  height: 85vh;
+  background-color: white;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* Left sidebar */
+.conversation-list {
+  width: 350px;
+  border-right: 1px solid #e6e9f0;
+  display: flex;
+  flex-direction: column;
+  background-color: #f8fafc;
+}
+
+.conversation-header {
+  padding: 16px;
+  border-bottom: 1px solid #e6e9f0;
+  font-weight: 600;
+  font-size: 18px;
+  color: #2d3748;
+  background-color: white;
+}
+
+.search-conversations {
+  padding: 12px 16px;
+  background-color: white;
+}
+
+.search-conversations input {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background-color: #f8fafc;
+  transition: all 0.3s;
+}
+
+.search-conversations input:focus {
+  outline: none;
+  border-color: #a0aec0;
+  background-color: white;
+  box-shadow: 0 0 0 3px rgba(118, 169, 250, 0.2);
+}
+
+
+.conversations-list {
+  overflow-y: auto;
+  flex-grow: 1;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.conversation-item {
+  display: flex;
+  padding: 14px 16px;
+  cursor: pointer;
+  border-left: 4px solid transparent;
+  transition: all 0.3s ease;
+  align-items: center;
+  background-color: white;
+  margin: 4px 8px;
+  border-radius: 8px;
+}
+
+.conversation-item.active {
+  background: linear-gradient(90deg, #ebf4ff 0%, #e3eff9 100%);
+  color: #2d3748;
+  border-left-color: #4299e1;
+}
+
+.conversation-item:hover {
+  background-color: #f0f5ff;
+}
+
+.avatar-wrapper {
+  position: relative;
+  margin-right: 12px;
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #e2e8f0;
+}
+
+.unread-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  background: #48bb78;
+  color: white;
+  font-weight: 600;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Conversation details */
+.conversation-details {
+  flex: 1;
+  font-size: 14px;
+}
+
+.conversation-header-row {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #2d3748;
+}
+
+.timestamp {
+  color: #a0aec0;
+  font-size: 12px;
+}
+
+.last-message {
+  color: #718096;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Chat area */
+.chat-area {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  background: #f7fafc;
+  
+}
+
+.chat-header {
+  display: flex;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid #e6e9f0;
+  align-items: center;
+  background-color: white;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+}
+
+.header-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  margin-right: 12px;
+  object-fit: cover;
+  border: 2px solid #e2e8f0;
+}
+
+.header-info h4 {
+  margin: 0;
+  font-weight: 700;
+  color: #2d3748;
+}
+
+.status {
+  font-size: 13px;
+  color: #48bb78;
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+}
+
+.status::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #48bb78;
+  margin-right: 6px;
+}
+
+.header-actions button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  margin-left: 8px;
+  border-radius: 8px;
+  transition: all 0.3s;
+  color: #718096;
+}
+
+.header-actions button:hover {
+  background-color: #edf2f7;
+  color: #2d3748;
+}
+/* Container holding all messages */
+.messages-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  overflow-y: auto;
+  padding: 1rem;
+  height: 60vh;
+}
+
+/* Each message wrapper */
+.message-wrapper {
+  display: flex;
+  width: 100%;
+  height:100;
+}
+
+/* Sent message (align right) */
+.message-wrapper.sent {
+  justify-content: flex-end; /* pushes content to the right */
+  
+}
+.message-wrapper.sent .message-bubble {
+  background-color: #4f46e5;
+  color: white;
+  padding: -3rem 0.8rem;        /* smaller padding */
+  max-width: 100%;
+  word-wrap: break-word;
+}
+
+
+/* Received message (align left) */
+.message-wrapper.received {
+  justify-content: flex-start; /* pushes content to the left */
+}
+
+.message-wrapper.received .message-bubble {
+  background-color: #bbc1cbff; /* received bubble color */
+  color: #0c0d10ff;
+  border-radius: 1rem 1rem 1rem 0.25rem;
+}
+
+/* Optional: spacing between avatar and bubble */
+.received-message .sender-avatar {
+  margin-right: 0.7rem;
+}
+
+
+/* Message groups */
+.message-group {
+  margin-bottom: 20px;
+  max-width: 70%;
+}
+
+.message-group.current-user {
+  margin-left: auto;
+  max-width: 70%;
+  text-align: right;
+}
+
+.message-sender {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.sender-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  margin-right: 8px;
+  object-fit: cover;
+  border: 2px solid #e2e8f0;
+}
+
+.sender-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: #115bdbff;
+}
+
+.message-bubble {
+  background-color: white;
+  padding: 12px 16px;
+  border-radius: 18px;
+  font-size: 15px;
+  line-height: 1.4;
+  position: relative;
+  display: inline-block;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  color: #2d3748;
+  border: 1px solid #e2e8f0;
+}
+
+.message-bubble.my-message {
+  background: linear-gradient(90deg, #4299e1 0%, #3182ce 100%);
+  color: white;
+  border: none;
+}
+
+.message-content p {
+  margin: 0;
+}
+
+.message-meta {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+  font-size: 11px;
+  color: #a0aec0;
+  align-items: center;
+}
+
+.message-meta.my-message {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.timestamp {
+  margin-left: 6px;
+}
+
+/* Input area */
+.message-input {
+  display: flex;
+  align-items: center;
+  border-top: 1px solid #e6e9f0;
+  padding: 12px 24px;
+  background: white;
+}
+
+.input-actions button {
+  background: none;
+  border: none;
+  margin-right: 12px;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 8px;
+  color: #718096;
+  transition: all 0.3s;
+}
+
+.input-actions button:hover {
+  background-color: #edf2f7;
+  color: #2d3748;
+}
+
+.input-wrapper {
+  flex-grow: 1;
+}
+
+.message-input input {
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 15px;
+  border: 1px solid #e2e8f0;
+  border-radius: 24px;
+  background-color: #f8fafc;
+  transition: all 0.3s;
+}
+
+.message-input input:focus {
+  outline: none;
+  border-color: #a0aec0;
+  background-color: white;
+  box-shadow: 0 0 0 3px rgba(118, 169, 250, 0.2);
+}
+
+.send-button {
+  background:  #f6f7f8ff ;
+  border: none;
+  cursor: pointer;
+  margin-left: 12px;
+  padding: 10px;
+  border-radius: 50%;
+  transition: all 0.3s;
+  color: blue;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 5px rgba(16, 16, 16, 0.96);
+}
+
+.send-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(66, 153, 225, 0.3);
+}
+
+.send-button:disabled {
+  cursor: not-allowed;
+  background: #a0aec0;
+  box-shadow: none;
+  transform: none;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e0;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a0aec0;
+}
 .send-button:disabled {
   cursor: not-allowed;
   color: #ccc;
 }
+
 
 
 /* Title styling – moved down by top margin */
@@ -3596,62 +4165,6 @@ body.payment-active {
 }
 
 
-
-
-        .cart-unit {
-       margin-left: 6px;
-      font-weight: 500;
-      color: #444;
-     }
-
-
-.quantity-cart {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-top: 10px;
-}
-
-.quantity-cart input {
-  width: 47px;
-  padding: 8px 0px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  font-size: 10x;
-}
-
-.quantity-cart select {
-  padding: 10px 0px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  font-size: 10px;
-  background-color: white;
-  cursor: pointer;
-  transition: 0.2s ease;
-    width: 56px;
-
-
-}
-
-.quantity-cart select:hover {
-  border-color: #38bff8;
-}
-
-.quantity-cart button {
-  background-color: #2563eb;
-  color: white;
-  padding: 10px 55px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 12px;
-  transition: background-color 0.2s ease;
-
-}
-
-.quantity-cart button:hover {
-  background-color: #1d4ed8;
-}
 
 
     </style>

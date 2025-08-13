@@ -161,17 +161,15 @@ Route::middleware(['auth:sanctum', 'isAdmin'])->prefix('admin')->group(function 
 });
 
 
-// ------------------- Messaging & Chat Routes -------------------
+
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/conversations', [ConversationController::class, 'index']);
-    Route::get('/conversations/{id}/messages', [ConversationController::class, 'messages']);
+    Route::get('/conversations/{conversationId}/messages', [ConversationController::class, 'messages']);
+    Route::post('/conversations/{conversationId}/messages', [ConversationController::class, 'sendMessage']);
+    Route::post('/conversations/{conversationId}/read', [ConversationController::class, 'markAsRead']);
     Route::post('/conversations/start', [ConversationController::class, 'startChat']);
-    Route::post('/conversations/{id}/send', [ConversationController::class, 'sendMessage']);
-    Route::post('/conversations/{id}/read', [ConversationController::class, 'markAsRead']);
 });
-
-
 
 
 

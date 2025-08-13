@@ -66,6 +66,22 @@ public function unit()
 {
     return $this->belongsTo(Unit::class);
 }
+public function product()
+{
+    return $this->belongsTo(Product::class);
+}
+public function consumer()
+{
+    return $this->belongsTo(User::class, 'consumer_id');
+}
 
+public function messages()
+{
+    return $this->hasMany(Message::class);
+}
 
+public function lastMessage()
+{
+    return $this->hasOne(Message::class)->latestOfMany();
+}
 }

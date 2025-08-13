@@ -85,5 +85,14 @@ public function farmer() {
 public function admin() {
     return $this->hasOne(Admin::class);
 }
+// In your User model
+protected $appends = ['avatar_url'];
 
+public function getAvatarUrlAttribute()
+{
+    if ($this->avatar) {
+        return '/storage/' . $this->avatar; // Adjust path if needed
+    }
+    return '/default-avatar.png'; // fallback
+}
 }

@@ -200,6 +200,8 @@ import ViewFeedback from './ViewFeedback.vue'
 // Register Chart.js components
 Chart.register(...registerables)
 
+const conversationSearchQuery = ref('')
+
 // Reactive data
 const section = ref('overview')
 const filterDate = ref('')
@@ -421,7 +423,6 @@ const handleLogout = async () => {
   }
 }
 </script>
-
 <style scoped>
 /* === Base & Layout Fixes for Full-Screen === */
 html,
@@ -436,31 +437,31 @@ body {
 .dashboard-container {
   display: flex;
   height: 100vh;
-  background: #f9fafb;
+  background: #f5f9f5; /* Light greenish background */
 }
 
 /* Sidebar */
 .sidebar {
   width: 240px;
-  background: #fff;
-  border-right: 1px solid #eee;
+  background: #2c5e1a; /* Dark green for sidebar */
   display: flex;
   flex-direction: column;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
   flex-shrink: 0;
   height: 100vh;
   overflow-y: auto;
+  color: white;
 }
 
 .sidebar .logo {
   font-weight: bold;
   font-size: 1.4rem;
-  color: #333;
+  color: white;
   margin: 1.5rem 0;
   text-align: center;
 }
 .sidebar .logo span {
-  color: #3b82f6;
+  color: #a3e635; /* Bright green accent */
 }
 
 .sidebar nav ul {
@@ -474,20 +475,23 @@ body {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  color: #e5e7eb;
+  transition: all 0.2s ease;
 }
 .sidebar nav li.active,
 .sidebar nav li:hover {
-  background: #f3f4f6;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
 }
 .sidebar nav li.logout {
   margin-top: auto;
-  color: #f87171;
+  color: #fca5a5;
 }
 
 /* Main Content */
 .main-content {
   flex: 1;
-  background: #f9fafb;
+  background: #f5f9f5; /* Light green background */
   padding: 1rem 2rem;
   overflow-y: auto;
 }
@@ -497,11 +501,16 @@ body {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1.5rem;
+  background: white;
+  padding: 1rem;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 .topbar h2 {
   font-size: 1.5rem;
   font-weight: 600;
-  color: #1f2937;
+  color: #1a3e1a; /* Dark green text */
+  margin: 0;
 }
 .topbar .filter {
   display: flex;
@@ -510,7 +519,12 @@ body {
   font-size: 0.9rem;
 }
 .topbar .filter label {
-  color: #6b7280;
+  color: #4b5563;
+}
+.topbar .filter input {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
 }
 
 /* Stats Cards */
@@ -521,7 +535,7 @@ body {
   margin-bottom: 1.5rem;
 }
 .stat-card {
-  background: #fff;
+  background: white;
   border-radius: 10px;
   padding: 1rem;
   display: flex;
@@ -529,6 +543,7 @@ body {
   align-items: center;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 .stat-card:hover {
   transform: translateY(-2px);
@@ -537,20 +552,24 @@ body {
 .stat-card .stat-icon {
   font-size: 1.8rem;
 }
-.stat-card.green .stat-icon { color: #10b981; }
-.stat-card.blue .stat-icon { color: #3b82f6; }
-.stat-card.orange .stat-icon { color: #f59e0b; }
-.stat-card.pink .stat-icon { color: #ec4899; }
+.stat-card.green { border-left: 4px solid #4ade80; }
+.stat-card.blue { border-left: 4px solid #60a5fa; }
+.stat-card.orange { border-left: 4px solid #fbbf24; }
+.stat-card.pink { border-left: 4px solid #f472b6; }
+.stat-card.green .stat-icon { color: #4ade80; }
+.stat-card.blue .stat-icon { color: #60a5fa; }
+.stat-card.orange .stat-icon { color: #fbbf24; }
+.stat-card.pink .stat-icon { color: #f472b6; }
 .stat-card h3 {
   margin: 0;
   font-size: 0.9rem;
   color: #6b7280;
 }
 .stat-card p {
-  margin: 0;
+  margin: 0.3rem 0;
   font-size: 1.2rem;
   font-weight: bold;
-  color: #111827;
+  color: #1a3e1a; /* Dark green text */
 }
 .stat-change {
   font-size: 0.85rem;
@@ -565,7 +584,7 @@ body {
 
 /* Health Doughnut Chart */
 .health-chart {
-  background: #fff;
+  background: white;
   border-radius: 10px;
   padding: 1rem;
   margin-bottom: 1.5rem;
@@ -573,11 +592,12 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 .health-chart h3 {
   margin: 0 0 0.5rem 0;
   font-size: 1rem;
-  color: #1f2937;
+  color: #1a3e1a; /* Dark green text */
 }
 .doughnut-wrapper {
   position: relative;
@@ -595,7 +615,7 @@ body {
 }
 .doughnut-label {
   position: absolute;
-  color: #1f2937;
+  color: #1a3e1a; /* Dark green text */
   text-align: center;
 }
 .label-value {
@@ -631,15 +651,16 @@ body {
 
 /* Customer 360 Section */
 .customer-360 {
-  background: #fff;
+  background: white;
   border-radius: 10px;
   padding: 1rem;
   margin-bottom: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 .customer-360 h3 {
   margin: 0 0 1rem 0;
   font-size: 1rem;
-  color: #1f2937;
+  color: #1a3e1a; /* Dark green text */
 }
 .customer-info {
   display: flex;
@@ -651,7 +672,7 @@ body {
   align-items: center;
   gap: 0.5rem;
   font-weight: 600;
-  color: #111827;
+  color: #1a3e1a; /* Dark green text */
 }
 .tag {
   display: flex;
@@ -659,7 +680,7 @@ body {
   justify-content: center;
   width: 28px;
   height: 28px;
-  background: #3b82f6;
+  background: #4ade80; /* Bright green */
   color: white;
   border-radius: 50%;
   font-size: 0.9rem;
@@ -679,22 +700,23 @@ body {
 }
 .metric span:nth-child(2) {
   font-weight: bold;
-  color: #111827;
+  color: #1a3e1a; /* Dark green text */
   margin-top: 0.25rem;
 }
 
 /* Revenue Chart */
 .revenue-chart {
-  background: #fff;
+  background: white;
   border-radius: 10px;
   padding: 1rem;
   margin-bottom: 1.5rem;
   height: 300px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 .revenue-chart h3 {
   margin: 0 0 1rem 0;
   font-size: 1rem;
-  color: #1f2937;
+  color: #1a3e1a; /* Dark green text */
 }
 .revenue-chart canvas {
   width: 100% !important;
@@ -703,9 +725,10 @@ body {
 
 /* Table Section */
 .table-section {
-  background: #fff;
+  background: white;
   border-radius: 10px;
   padding: 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 .table-section table {
   width: 100%;
@@ -718,9 +741,34 @@ body {
   border-bottom: 1px solid #eee;
 }
 .table-section th {
-  color: #6b7280;
+  color: #4b5563;
   font-weight: 600;
   font-size: 0.9rem;
+}
+.table-section td {
+  color: #1a3e1a; /* Dark green text */
+}
+
+/* Loading State */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 300px;
+  color: #1a3e1a; /* Dark green text */
+}
+.spinner {
+  border: 4px solid rgba(74, 222, 128, 0.3); /* Light green */
+  border-radius: 50%;
+  border-top: 4px solid #4ade80; /* Bright green */
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 /* Responsive Design */
@@ -772,7 +820,7 @@ body {
 }
 
 .revenue-chart {
-  background: #fff;
+  background: white;
   border-radius: 10px;
   padding: 1rem;
   margin-bottom: 1.5rem;
@@ -784,7 +832,7 @@ body {
 
 .revenue-chart canvas {
   width: 100%;
-  min-width: 900px; /* Enough for 12 bars */
+  min-width: 900px;
   height: 100% !important;
 }
 </style>

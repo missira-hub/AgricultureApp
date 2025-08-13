@@ -21,4 +21,17 @@ class Conversation extends Model
     {
         return $this->hasMany(Message::class);
     }
+     public function product()
+    {
+        return $this->belongsTo(Product::class);
+    }
+
+    /**
+     * Get the consumer who started the conversation.
+     */
+    public function consumer()
+    {
+        return $this->belongsTo(User::class, 'consumer_id');
+    }
+
 }

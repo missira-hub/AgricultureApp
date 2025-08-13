@@ -1,5 +1,6 @@
 <template>
-  <div class="dashboard">
+  <div class="app-container">
+    <!-- Sidebar (Fixed) -->
     <aside class="sidebar">
       <h2>FASI-MARKET</h2>
       <nav>
@@ -18,9 +19,10 @@
       </nav>
     </aside>
 
-    <main class="main-content">
-      <!-- Dashboard Header -->
-      <div class="dashboard-header">
+    <!-- Main Content Area (Includes Header + Scrollable Content) -->
+    <div class="main-wrapper">
+      <!-- Dashboard Header (Fixed on top of main content) -->
+      <header class="dashboard-header">
         <div class="greeting">
           <h2>👋 Hello, {{ currentUser?.name || 'Farmer' }}</h2>
           <p>Welcome back to your dashboard</p>
@@ -34,219 +36,415 @@
           />
           <div v-else class="profile-picture placeholder">👤</div>
         </div>
-      </div>
+      </header>
 
-      <ProfileModal
-        v-if="profileModalOpen"
-        @close="closeProfileModal"
-        @updated="onProfileUpdated"
-      />
+      <!-- Scrollable Main Content -->
+      <main class="main-content">
+        <ProfileModal
+          v-if="profileModalOpen"
+          @close="closeProfileModal"
+          @updated="onProfileUpdated"
+        />
 
-      <!-- Dashboard Overview Section -->
-      <section v-if="section === 'overview'" class="dashboard-overview">
-       
-
-        <!-- Stats Grid -->
-        <div class="stats-grid">
-          <div class="stat-card" @click="switchSection('listings')">
-            <div class="stat-icon">📦</div>
-            <div class="stat-number">{{ products.length }}</div>
-            <div class="stat-label">Active Products</div>
+        <!-- Dashboard Overview -->
+        <section v-if="section === 'overview'" class="dashboard-overview">
+          <!-- Stats Grid -->
+          <div class="stats-grid">
+            <div class="stat-card" @click="switchSection('listings')">
+              <div class="stat-icon">📦</div>
+              <div class="stat-number">{{ products.length }}</div>
+              <div class="stat-label">Active Products</div>
+            </div>
+            <div class="stat-card" @click="switchSection('sales')">
+              <div class="stat-icon">💰</div>
+              <div class="stat-number">₺{{ calculateMonthlyRevenue() }}</div>
+              <div class="stat-label">This Month</div>
+            </div>
+            <div class="stat-card" @click="switchSection('messages')">
+              <div class="stat-icon">📬</div>
+              <div class="stat-number">{{ unreadCount }}</div>
+              <div class="stat-label">New Messages</div>
+            </div>
+            <div class="stat-card" @click="switchSection('feedback')">
+              <div class="stat-icon">⭐</div>
+              <div class="stat-number">{{ calculateAverageRating() }}</div>
+              <div class="stat-label">Rating</div>
+            </div>
           </div>
 
-          <div class="stat-card" @click="switchSection('sales')">
-            <div class="stat-icon">💰</div>
-            <div class="stat-number">₺{{ calculateMonthlyRevenue() }}</div>
-            <div class="stat-label">This Month</div>
+          <!-- Quick Actions -->
+          <div class="content-section">
+            <h3 class="section-title">Quick Actions</h3>
+            <div class="quick-actions">
+              <button class="action-btn" @click="switchSection('listings'); showForm = true;">
+                <span>➕</span> Add Product
+              </button>
+              <button class="action-btn" @click="switchSection('sales')">
+                <span>📋</span> View Orders
+              </button>
+              <button class="action-btn" @click="switchSection('listings')">
+                <span>📊</span> Update Inventory
+              </button>
+              <button class="action-btn" @click="switchSection('feedback')">
+                <span>📈</span> View Feedback
+              </button>
+            </div>
           </div>
 
-          <div class="stat-card" @click="switchSection('messages')">
-            <div class="stat-icon">📬</div>
-            <div class="stat-number">{{ unreadCount }}</div>
-            <div class="stat-label">New Messages</div>
-          </div>
-
-          <div class="stat-card" @click="switchSection('feedback')">
-            <div class="stat-icon">⭐</div>
-            <div class="stat-number">{{ calculateAverageRating() }}</div>
-            <div class="stat-label">Rating</div>
-          </div>
-        </div>
-
-        <!-- Quick Actions -->
-        <div class="content-section">
-          <h3 class="section-title">Quick Actions</h3>
-          <div class="quick-actions">
-            <button class="action-btn" @click="switchSection('listings'); showForm = true;">
-              <span>➕</span> Add Product
-            </button>
-            <button class="action-btn" @click="switchSection('sales')">
-              <span>📋</span> View Orders
-            </button>
-            <button class="action-btn" @click="switchSection('listings')">
-              <span>📊</span> Update Inventory
-            </button>
-            <button class="action-btn" @click="switchSection('feedback')">
-              <span>📈</span> View Feedback
-            </button>
-          </div>
-        </div>
-
-        <!-- Recent Activity -->
-        <div class="content-section">
-          <h3 class="section-title">Recent Activity</h3>
-          <div class="activity-list">
-            <div v-for="sale in sales.slice(0, 5)" :key="sale.id" class="activity-item">
-              <div class="activity-icon">💰</div>
-              <div class="activity-content">
-                <p><strong>{{ sale.product_name }}</strong> sold</p>
-                <span>{{ formatDate(sale.created_at) }}</span>
+          <!-- Recent Activity -->
+          <div class="content-section">
+            <h3 class="section-title">Recent Activity</h3>
+            <div class="activity-list">
+              <div v-for="sale in sales.slice(0, 5)" :key="sale.id" class="activity-item">
+                <div class="activity-icon">💰</div>
+                <div class="activity-content">
+                  <p><strong>{{ sale.product_name }}</strong> sold</p>
+                  <span>{{ formatDate(sale.created_at) }}</span>
+                </div>
+                <div class="activity-value">₺{{ sale.total_price }}</div>
               </div>
-              <div class="activity-value">₺{{ sale.total_price }}</div>
-            </div>
-            <div v-if="sales.length === 0" class="empty-activity">
-              No recent activity
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Existing Listings Section -->
-      <section v-if="section === 'listings'" class="farmer-listings">
-        <div class="header">
-          <h2>🧺 My Product Listings</h2>
-          <button @click="showForm = !showForm" class="btn-primary">
-            {{ showForm ? (editMode ? 'Cancel Edit' : 'Cancel') : '➕ Add Product' }}
-          </button>
-        </div>
-
-        <!-- Category Filter -->
-        <div class="filter-controls">
-          <select v-model="selectedCategory" @change="filterProducts">
-            <option value="">All Categories</option>
-            <option v-for="category in categories" :key="category.id" :value="category.id">
-              {{ category.name }}
-            </option>
-          </select>
-        </div>
-
-        <!-- Form Section -->
-        <form v-if="showForm" @submit.prevent="submitProduct" enctype="multipart/form-data" class="form">
-          <div class="form-group">
-            <input v-model="newProduct.name" placeholder="Product Name" required />
-          </div>
-
-          <div class="form-group">
-            <textarea v-model="newProduct.description" placeholder="Description" required></textarea>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <input v-model.number="newProduct.price" type="number" min="0" step="0.01" placeholder="Price (₺)" required />
-            </div>
-            <div class="form-group">
-              <input v-model.number="newProduct.quantity" type="number" min="0" placeholder="Quantity" required />
+              <div v-if="sales.length === 0" class="empty-activity">
+                No recent activity
+              </div>
             </div>
           </div>
+        </section>
 
-          <!-- Category Selection -->
-          <div class="form-group">
-            <label>Category:</label>
-            <select v-model="newProduct.category_id" required>
-              <option value="">Select a category</option>
+        <!-- Listings Section -->
+        <section v-if="section === 'listings'" class="farmer-listings">
+          <div class="header">
+            <h2>🧺 My Product Listings</h2>
+            <button @click="showForm = !showForm" class="btn-primary">
+              {{ showForm ? (editMode ? 'Cancel Edit' : 'Cancel') : '➕ Add Product' }}
+            </button>
+          </div>
+
+          <div class="filter-controls">
+            <select v-model="selectedCategory" @change="filterProducts">
+              <option value="">All Categories</option>
               <option v-for="category in categories" :key="category.id" :value="category.id">
                 {{ category.name }}
               </option>
             </select>
           </div>
 
-          <!-- Unit Selection -->
-          <div class="form-group">
-            <label>Unit:</label>
-            <select v-model="newProduct.unit_id" required>
-              <option value="">Select a unit</option>
-              <option v-for="unit in units" :key="unit.id" :value="unit.id">
-                {{ unit.name }} ({{ unit.abbreviation }})
-              </option>
-            </select>
-          </div>
-
-          <!-- Image Upload -->
-          <div class="form-group">
-            <label>Product Image:</label>
-            <input type="file" @change="handleImageChange" accept="image/*" />
-            <div v-if="imagePreview" class="image-preview">
-              <button @click="imagePreview = null" type="button">Remove</button>
+          <!-- Form -->
+          <form v-if="showForm" @submit.prevent="submitProduct" enctype="multipart/form-data" class="form">
+            <div class="form-group">
+              <input v-model="newProduct.name" placeholder="Product Name" required />
             </div>
-          </div>
-
-          <div class="form-actions">
-            <button type="submit" class="btn-primary">
-              {{ editMode ? 'Update Product' : 'Save Product' }}
-            </button>
-            <button v-if="editMode" @click="cancelEdit" type="button" class="btn-secondary">Cancel Edit</button>
-          </div>
-        </form>
-
-        <!-- Product Grid -->
-        <div v-if="filteredProducts.length === 0" class="empty-state">
-          <p>No products found {{ selectedCategory ? 'in this category' : '' }}.</p>
-        </div>
-
-        <div v-else class="product-grid">
-          <div v-for="product in filteredProducts" :key="product.id" class="product-card">
-            <div class="product-image-container">
-              <img v-if="product.image_url" :src="product.image_url" :alt="product.name" />
-              <div v-else class="image-placeholder">No Image</div>
+            <div class="form-group">
+              <textarea v-model="newProduct.description" placeholder="Description" required></textarea>
             </div>
-
-            <div class="product-info">
-              <h3>{{ product.name }}</h3>
-              <p>{{ product.description }}</p>
-            </div>
-
-            <div class="product-meta-beautified">
-              <!-- Price per unit -->
-              <div class="meta-item">
-                <strong>₺{{ product.price }}</strong>
-                <span v-if="product.unit">/ {{ product.unit.abbreviation }}</span>
+            <div class="form-row">
+              <div class="form-group">
+                <input v-model.number="newProduct.price" type="number" min="0" step="0.01" placeholder="Price (₺)" required />
               </div>
-
-              <!-- Quantity with unit -->
-              <div class="meta-item">
-                <strong>Qty:</strong> {{ product.quantity }}
-                <span v-if="product.unit"> {{ product.unit.abbreviation }}</span>
-              </div>
-
-              <!-- Category tag -->
-              <div class="meta-item category-tag">
-                {{ getCategoryName(product.category_id) }}
-              </div>
-
-              <!-- Stock status -->
-              <div class="meta-item" :class="{ 'out-of-stock': product.quantity === 0 }">
-                {{ product.quantity > 0 ? 'In Stock' : 'Out of Stock' }}
-              </div>
-
-              <div class="product-actions">
-                <button @click="startEdit(product)" class="btn-secondary">✏️ Edit</button>
-                <button @click="deleteProduct(product.id)" class="btn-danger">🗑 Delete</button>
+              <div class="form-group">
+                <input v-model.number="newProduct.quantity" type="number" min="0" placeholder="Quantity" required />
               </div>
             </div>
-          </div>
-        </div>
-      </section>
-  
-      <!-- Messages Section -->
-      <section v-if="section === 'messages' && !loading" class="consumer-dashboard-messages">
-        <ChatView />
-      </section>
+            <div class="form-group">
+              <label>Category:</label>
+              <select v-model="newProduct.category_id" required>
+                <option value="">Select a category</option>
+                <option v-for="category in categories" :key="category.id" :value="category.id">
+                  {{ category.name }}
+                </option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Unit:</label>
+              <select v-model="newProduct.unit_id" required>
+                <option value="">Select a unit</option>
+                <option v-for="unit in units" :key="unit.id" :value="unit.id">
+                  {{ unit.name }} ({{ unit.abbreviation }})
+                </option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Product Image:</label>
+              <input type="file" @change="handleImageChange" accept="image/*" ref="fileInput" />
+              <div v-if="imagePreview" class="image-preview">
+                <img :src="imagePreview" alt="Preview" />
+                <button @click="imagePreview = null" type="button">Remove</button>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn-primary">
+                {{ editMode ? 'Update Product' : 'Save Product' }}
+              </button>
+              <button v-if="editMode" @click="cancelEdit" type="button" class="btn-secondary">Cancel Edit</button>
+            </div>
+          </form>
 
-      <!-- Feedback Section -->
-      <section v-if="section === 'feedback'" class="content-section">
-        <div class="view-feedback">
+          <!-- Product Grid -->
+          <div v-if="filteredProducts.length === 0" class="empty-state">
+            <p>No products found {{ selectedCategory ? 'in this category' : '' }}.</p>
+          </div>
+          <div v-else class="product-grid">
+            <div v-for="product in filteredProducts" :key="product.id" class="product-card">
+              <div class="product-image-container">
+                <img v-if="product.image_url" :src="product.image_url" :alt="product.name" />
+                <div v-else class="image-placeholder">No Image</div>
+              </div>
+              <div class="product-info">
+                <h3>{{ product.name }}</h3>
+                <p>{{ product.description }}</p>
+              </div>
+              <div class="product-meta-beautified">
+                <div class="meta-item">
+                  <strong>₺{{ product.price }}</strong>
+                  <span v-if="product.unit">/ {{ product.unit.abbreviation }}</span>
+                </div>
+                <div class="meta-item">
+                  <strong>Qty:</strong> {{ product.quantity }}
+                  <span v-if="product.unit"> {{ product.unit.abbreviation }}</span>
+                </div>
+                <div class="meta-item category-tag">
+                  {{ getCategoryName(product.category_id) }}
+                </div>
+                <div class="meta-item" :class="{ 'out-of-stock': product.quantity === 0 }">
+                  {{ product.quantity > 0 ? 'In Stock' : 'Out of Stock' }}
+                </div>
+                <div class="product-actions">
+                  <button @click="startEdit(product)" class="btn-secondary">✏️ Edit</button>
+                  <button @click="deleteProduct(product.id)" class="btn-danger">🗑 Delete</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Messages Section -->
+        <section v-if="section === 'messages'" class="messaging-section">
+          <div class="messaging-container">
+            <!-- Conversations List (Left Sidebar) -->
+            <div class="conversation-list">
+              <div class="conversation-header">
+                <h3>Messages</h3>
+                <div class="search-conversations">
+                  <input
+                    v-model="conversationSearchQuery"
+                    type="text"
+                    placeholder="Search conversations..."
+                    @input="searchConversations"
+                  />
+                </div>
+              </div>
+
+              <!-- Loading State -->
+              <div v-if="loadingConversations" class="loading-state">
+                <p>Loading conversations...</p>
+              </div>
+
+              <!-- Empty State -->
+              <div v-else-if="filteredConversations.length === 0" class="empty-state">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+                <p>No conversations found</p>
+              </div>
+
+              <!-- Conversations List -->
+              <ul v-else class="conversations-list">
+                <li
+                  v-for="conv in filteredConversations"
+                  :key="conv.id"
+                  @click="selectConversation(conv)"
+                  :class="['conversation-item', { active: currentConversation?.id === conv.id }]"
+                >
+                  <div class="conversation-info">
+                    <img
+                      :src="conv.avatarUrl || '/default-avatar.png'"
+                      alt="Avatar"
+                      class="conversation-avatar"
+                    />
+                    <div class="conversation-details">
+                      <div class="conversation-header-row">
+                        <strong class="conversation-title">{{ getConversationTitle(conv) }}</strong>
+                        <span class="timestamp">{{ conv.lastMessageCreatedAt ? formatTime(conv.lastMessageCreatedAt) : '' }}</span>
+                      </div>
+                      <p class="last-message">{{ getLastMessagePreview(conv) }}</p>
+                    </div>
+                    <div v-if="conv.unread_count > 0" class="unread-indicator">
+                      {{ conv.unread_count > 9 ? '9+' : conv.unread_count }}
+                    </div>
+                  </div>
+                </li>
+              </ul>
+            </div>
+
+            <!-- Chat Area (Right Side) -->
+            <div class="chat-area">
+              <!-- Placeholder -->
+              <div v-if="!currentConversation" class="select-conversation">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+                <h3>Select a conversation</h3>
+                <p>Start messaging your contacts</p>
+              </div>
+
+              <!-- Active Chat -->
+              <div v-else>
+                <!-- Chat Header -->
+                <div class="chat-header">
+                  <div class="header-left">
+                    <img
+                      :src="currentConversation.avatarUrl || '/default-avatar.png'"
+                      alt="Contact"
+                      class="header-avatar"
+                    />
+                    <div class="header-info">
+                      <h4>{{ getConversationTitle(currentConversation) }}</h4>
+                      <p class="status">
+                        {{ currentConversation.isOnline ? 'Online' : `Last seen ${formatTime(currentConversation.lastSeen)}` }}
+                      </p>
+                    </div>
+                  </div>
+                  <div class="header-actions">
+                    <button class="action-button">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                      </svg>
+                    </button>
+                    <button class="action-button">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <circle cx="12" cy="12" r="1"/>
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
+                        <path d="M12 6v6l4 2"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+            
+        <!-- Messages Container -->
+        <div
+          class="messages-container"
+          ref="messagesContainer"
+          @scroll.passive="handleScroll"
+        >
+          <!-- Loading More Messages (top) -->
+          <div v-if="loadingMoreMessages" class="loading-more-messages">
+            <div class="loading-spinner"></div>
+            <p>Loading older messages...</p>
+          </div>
+
+                  <!-- No Messages Yet -->
+                  <div v-else-if="hasNoMessages" class="empty-state">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    <p>No messages yet</p>
+                    <small>Start the conversation</small>
+                  </div>
+
+                  <!-- Message List -->
+                  <div v-else-if="!loadingMessages" class="messages-list">
+                    <div
+                      v-for="message in currentConversation.messages"
+                      :key="message.id"
+                      class="message-wrapper"
+                      :class="{ sent: message.sender_id === userId, received: message.sender_id !== userId }"
+                    >
+                      <!-- Received Message -->
+                      <div v-if="message.sender_id !== userId" class="received-message">
+                        <img
+                          v-if="showSenderInfo(message)"
+                          :src="message.sender_avatar_url || '/default-avatar.png'"
+                          alt="Sender"
+                          class="sender-avatar"
+                        />
+                        <div class="message-content">
+                          <div class="message-bubble received">
+                            <p>{{ message.message }}</p>
+                            <div class="message-meta">
+                              <span class="timestamp">{{ formatTime(message.created_at) }}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Sent Message -->
+                      <div v-else class="sent-message">
+                        <div class="message-content">
+                          <div class="message-bubble sent">
+                            <p>{{ message.message }}</p>
+                            <div class="message-meta">
+                              <span class="timestamp">{{ formatTime(message.created_at) }}</span>
+                              <span class="message-status">
+                                <svg v-if="message.status === 'pending'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                  <path d="M16 8v8l-8-4 8-4z"/>
+                                </svg>
+                                <svg v-else-if="message.status === 'sent'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                  <path d="M5 13l4 4L19 7"/>
+                                </svg>
+                                <svg v-else-if="message.status === 'delivered'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                  <path d="M5 13l4 4L19 7" stroke-width="2"/>
+                                </svg>
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Initial Loading -->
+                  <div v-if="loadingMessages && !hasNoMessages" class="loading-state">
+                    <p>Loading messages...</p>
+                  </div>
+                </div>
+
+                <!-- Message Input -->
+                <div class="message-input">
+                  <div class="input-actions">
+                    <button class="emoji-button">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
+                        <line x1="9" y1="9" x2="9.01" y2="9"/>
+                        <line x1="15" y1="9" x2="15.01" y2="9"/>
+                      </svg>
+                    </button>
+                    <button class="attachment-button">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.19 9.19a2 2 0 0 1-2.83-2.83l9.19-9.19"/>
+                      </svg>
+                    </button>
+                  </div>
+
+                  <div class="input-wrapper">
+                    <input
+                      v-model="newMessage"
+                      @keyup.enter="sendMessage"
+                      placeholder="Type a message..."
+                      @focus="markConversationAsRead"
+                    />
+                  </div>
+
+                  <button
+                    @click="sendMessage"
+                    :disabled="!newMessage.trim()"
+                    class="send-button"
+                    :class="{ active: newMessage.trim() }"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <line x1="22" y1="2" x2="11" y2="13"/>
+                      <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Feedback Section -->
+        <section v-if="section === 'feedback'" class="content-section view-feedback">
           <h2>⭐ Manage Feedback & Reply</h2>
-
           <table class="feedback-table" v-if="feedback.length">
             <thead>
               <tr>
@@ -276,37 +474,19 @@
                     <strong>Your reply:</strong> {{ item.reply }}
                   </div>
                   <div v-else>
-                    <textarea
-                      v-model="replies[item.id]"
-                      placeholder="Write your reply here"
-                      rows="2"
-                      cols="25"
-                    ></textarea>
-                    <button
-                      @click="sendReply(item.id)"
-                      :disabled="!replies[item.id] || sendingReply[item.id]"
-                      class="btn-reply"
-                    >
+                    <textarea v-model="replies[item.id]" placeholder="Write your reply here" rows="2" cols="25"></textarea>
+                    <button @click="sendReply(item.id)" :disabled="!replies[item.id] || sendingReply[item.id]" class="btn-reply">
                       {{ sendingReply[item.id] ? 'Sending...' : 'Reply' }}
                     </button>
                   </div>
                 </td>
                 <td>
-                  <button 
-                    v-if="!item.approved" 
-                    @click="approveFeedback(item.id)" 
-                    class="btn-approve"
-                  >
-                    ✔ Approve
-                  </button>
-                  <button @click="deleteFeedback(item.id)" class="btn-delete">
-                    🗑 Delete
-                  </button>
+                  <button v-if="!item.approved" @click="approveFeedback(item.id)" class="btn-approve">✔ Approve</button>
+                  <button @click="deleteFeedback(item.id)" class="btn-delete">🗑 Delete</button>
                 </td>
               </tr>
             </tbody>
           </table>
-
           <p v-else>No feedback found.</p>
 
           <!-- Pagination -->
@@ -315,164 +495,106 @@
             <span>Page {{ pagination.current_page }} / {{ pagination.last_page }}</span>
             <button :disabled="pagination.current_page === pagination.last_page" @click="changePage(pagination.current_page + 1)">Next</button>
           </div>
-        </div>
-      </section>
+        </section>
 
-<!-- Sales History -->
-<section v-if="section === 'sales'" class="content-section">
-  <h2>📦 Sales History</h2>
-
-  <!-- Loader -->
-  <div v-if="salesLoading" class="loading">Loading sales data...</div>
-
-  <!-- Sales Available -->
-  <div v-else-if="sales.length > 0" class="sales-grid">
-    <div v-for="sale in sales" :key="sale.id" class="sale-card">
-      <div class="sale-info">
-        <h3>{{ sale.product_name }}</h3>
-        <div class="sale-meta">
-          <span>Order #{{ sale.order_id }}</span>
-          <span>{{ formatDate(sale.created_at) }}</span>
-        </div>
-      </div>
-      <div class="sale-stats">
-        <div class="stat">
-          <span class="label">Quantity</span>
-          <span class="value">{{ sale.quantity }}</span>
-        </div>
-        <div class="stat">
-          <span class="label">Total</span>
-          <span class="value">{{ sale.total_price }} ₺</span>
-        </div>
-      </div>
+        <!-- Sales History Section -->
+        <section v-if="section === 'sales'" class="content-section">
+          <h2>📦 Sales History</h2>
+          <div v-if="salesLoading" class="loading">Loading sales data...</div>
+          <div v-else-if="sales.length > 0" class="sales-grid">
+            <div v-for="sale in sales" :key="sale.id" class="sale-card">
+              <div class="sale-info">
+                <h3>{{ sale.product_name }}</h3>
+                <div class="sale-meta">
+                  <span>Order #{{ sale.order_id }}</span>
+                  <span>{{ formatDate(sale.created_at) }}</span>
+                </div>
+              </div>
+              <div class="sale-stats">
+                <div class="stat">
+                  <span class="label">Quantity</span>
+                  <span class="value">{{ sale.quantity }}</span>
+                </div>
+                <div class="stat">
+                  <span class="label">Total</span>
+                  <span class="value">{{ sale.total_price }} ₺</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div v-else class="empty-state">
+            <p>Nothing has been sold yet.</p>
+          </div>
+        </section>
+      </main>
     </div>
-  </div>
-
-  <!-- No Sales Case -->
-  <div v-else class="empty-state">
-    <p>Nothing has been sold yet.</p>
-  </div>
-</section>
-
-
-    </main>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
-import axios from 'axios';
-import ProfileModal from '@/components/ProfileModal2.vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
+import axios from 'axios'
+import { useAuthStore } from '@/stores/auth'
 
-const avatarUrl = ref('/default-avatar.png')
-const searchQuery = ref('')
+// Initialize auth store
+const authStore = useAuthStore()
+const currentUser = computed(() => authStore.user)
 
-const toggleModal = () => {
-  profileModalOpen.value = true
+// API configuration
+axios.defaults.baseURL = 'http://127.0.0.1:8000'
+
+// Section management
+const section = ref('overview')
+const switchSection = (newSection) => {
+  section.value = newSection
+  if (newSection === 'messages') {
+    fetchConversations()
+  } else if (newSection === 'feedback') {
+    fetchFeedback()
+  } else if (newSection === 'sales') {
+    fetchSales()
+  } else if (newSection === 'listings') {
+    fetchProducts()
+  }
 }
 
+// Profile modal
+const profileModalOpen = ref(false)
+const openProfileModal = () => profileModalOpen.value = true
+const closeProfileModal = () => profileModalOpen.value = false
 const onProfileUpdated = (newUserData) => {
   authStore.setUser(newUserData)
-  avatarUrl.value = newUserData.avatar_url || '/default-avatar.png'
 }
 
-onMounted(() => {
-  if (currentUser.value?.avatar_url) {
-    avatarUrl.value = currentUser.value.avatar_url
-  }
-})
-
-
-
-const profileModalOpen = ref(false)
-
-const openProfileModal = () => {
-  profileModalOpen.value = true
-}
-
-const closeProfileModal = () => {
-  profileModalOpen.value = false
-}
-
-// Fetch current profile data
-const fetchProfile = async () => {
-  try {
-    const token = localStorage.getItem('token')
-    const res = await axios.get('http://127.0.0.1:8000/api/user/profile', {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    })
-    authStore.setUser({
-      ...res.data,
-      avatar_url: res.data.avatar_url || '/default-avatar.png',
-    })
-  } catch (err) {
-    console.error('Error fetching profile:', err)
-  }
-}
-
-onMounted(fetchProfile)
-
-axios.defaults.baseURL = 'http://127.0.0.1:8000';
-import { useAuthStore } from '@/stores/auth';
-
-const authStore = useAuthStore();
-const currentUser = computed(() => authStore.user);
-
-// Section management - Updated to include overview
-const section = ref('overview');
-const switchSection = (newSection) => {
-  section.value = newSection;
-  if (newSection === 'messages') {
-    fetchConversations();
-  }
-};
-
+// Logout
 const handleLogout = async () => {
   try {
-    const token = localStorage.getItem('token');
-    await axios.post(
-      'http://127.0.0.1:8000/api/logout',
-      {},
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: 'application/json'
-        }
+    const token = localStorage.getItem('token')
+    await axios.post('/api/logout', {}, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/json'
       }
-    );
-    localStorage.removeItem('token');
-    window.location.href = '/login';
+    })
+    localStorage.removeItem('token')
+    window.location.href = '/login'
   } catch (error) {
-    console.error('Logout failed:', error);
-    localStorage.removeItem('token');
-    window.location.href = '/login';
+    console.error('Logout failed:', error)
+    localStorage.removeItem('token')
+    window.location.href = '/login'
   }
-};
-
-const units = ref([]);
-
-onMounted(async () => {
-  try {
-    const res = await axios.get('/api/units');
-    units.value = res.data;
-  } catch (error) {
-    console.error('Failed to load units', error);
-  }
-});
-
-
+}
 
 // Product management
-const products = ref([]);
-const categories = ref([]);
-const selectedCategory = ref('');
-const showForm = ref(false);
-const editMode = ref(false);
-const editingProductId = ref(null);
-const imagePreview = ref();
-const fileInput = ref(null);
+const products = ref([])
+const categories = ref([])
+const units = ref([])
+const selectedCategory = ref('')
+const showForm = ref(false)
+const editMode = ref(false)
+const editingProductId = ref(null)
+const imagePreview = ref(null)
+const fileInput = ref(null)
 
 const newProduct = ref({
   name: '',
@@ -481,141 +603,107 @@ const newProduct = ref({
   quantity: 0,
   category_id: '',
   unit_id: '',
-  image: null,
-});
+  image: null
+})
 
-// Dashboard calculation functions
-const calculateMonthlyRevenue = () => {
-  const currentMonth = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
-  
-  const monthlyTotal = sales.value
-    .filter(sale => {
-      const saleDate = new Date(sale.created_at);
-      return saleDate.getMonth() === currentMonth && saleDate.getFullYear() === currentYear;
-    })
-    .reduce((total, sale) => total + parseFloat(sale.total_price || 0), 0);
-  
-  return monthlyTotal.toFixed(0);
-};
-
-const calculateAverageRating = () => {
-  if (!feedback.value || feedback.value.length === 0) return '0.0';
-  
-  const totalRating = feedback.value.reduce((sum, item) => sum + (item.rating || 0), 0);
-  const average = totalRating / feedback.value.length;
-  
-  return average.toFixed(1);
-};
-
-// Fetch products and categories from API
+// Fetch data functions
 const fetchProducts = async () => {
   try {
-    const res = await axios.get('/api/farmer/products');
-    products.value = res.data;
+    const res = await axios.get('/api/farmer/products', {
+      headers: getAuthHeaders()
+    })
+    products.value = res.data
   } catch (err) {
-    console.error('Failed to fetch products:', err);
+    console.error('Failed to fetch products:', err)
   }
-};
+}
 
 const fetchCategories = async () => {
   try {
-    const res = await axios.get('/api/categories');
-    categories.value = res.data;
+    const res = await axios.get('/api/categories')
+    categories.value = res.data
   } catch (err) {
-    console.error('Failed to fetch categories:', err);
+    console.error('Failed to fetch categories:', err)
   }
-};
+}
 
-// Filter products by category
-const filteredProducts = computed(() => {
-  if (!selectedCategory.value) return products.value;
-  return products.value.filter(product => product.category_id == selectedCategory.value);
-});
+const fetchUnits = async () => {
+  try {
+    const res = await axios.get('/api/units')
+    units.value = res.data
+  } catch (err) {
+    console.error('Failed to fetch units:', err)
+  }
+}
 
-const getCategoryName = (categoryId) => {
-  const category = categories.value.find(c => c.id == categoryId);
-  return category ? category.name : 'Uncategorized';
-};
-
-// Handle image selection
+// Product form handlers
 const handleImageChange = (event) => {
-  const file = event.target.files[0];
-  if (!file) return;
+  const file = event.target.files[0]
+  if (!file) return
 
-  newProduct.value.image = file;
-  const reader = new FileReader();
+  newProduct.value.image = file
+  const reader = new FileReader()
   reader.onload = (e) => {
-    imagePreview.value = e.target.result;
-  };
-  reader.readAsDataURL(file);
-};
+    imagePreview.value = e.target.result
+  }
+  reader.readAsDataURL(file)
+}
 
-// Submit product form
 const submitProduct = async () => {
   try {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem('token')
     if (!token) {
-      alert("You are not logged in!");
-      return;
+      alert('You are not logged in!')
+      return
     }
 
-    const formData = new FormData();
-    formData.append("name", newProduct.value.name);
-    formData.append("description", newProduct.value.description);
-    formData.append("price", newProduct.value.price);
-    formData.append("quantity", newProduct.value.quantity);
-    formData.append("category_id", newProduct.value.category_id);
-    formData.append("unit_id", newProduct.value.unit_id);
+    const formData = new FormData()
+    formData.append('name', newProduct.value.name)
+    formData.append('description', newProduct.value.description)
+    formData.append('price', newProduct.value.price)
+    formData.append('quantity', newProduct.value.quantity)
+    formData.append('category_id', newProduct.value.category_id)
+    formData.append('unit_id', newProduct.value.unit_id)
 
     if (newProduct.value.image) {
-      formData.append("image", newProduct.value.image);
+      formData.append('image', newProduct.value.image)
     }
 
-    let response;
+    let response
     if (editMode.value && editingProductId.value) {
-      // ✅ UPDATE PRODUCT
+      // Update product
       response = await axios.post(
         `/api/farmer/products/${editingProductId.value}?_method=PUT`,
         formData,
         {
           headers: {
             Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
-          },
+            'Content-Type': 'multipart/form-data'
+          }
         }
-      );
+      )
     } else {
-      // ✅ CREATE PRODUCT
-      response = await axios.post("/api/farmer/products", formData, {
+      // Create product
+      response = await axios.post('/api/farmer/products', formData, {
         headers: {
           Authorization: `Bearer ${token}`,
-          "Content-Type": "multipart/form-data",
-        },
-      });
+          'Content-Type': 'multipart/form-data'
+        }
+      })
     }
 
-    // ✅ Reload product list & reset form
-    await fetchProducts();
-    resetForm();
+    await fetchProducts()
+    resetForm()
   } catch (err) {
-    console.error(
-      "Failed to submit product:",
-      err.response?.data || err.message
-    );
-    alert(
-      "Error: " +
-        (err.response?.data?.message || "Failed to submit product")
-    );
+    console.error('Failed to submit product:', err.response?.data || err.message)
+    alert('Error: ' + (err.response?.data?.message || 'Failed to submit product'))
   }
-};
+}
 
-
-// Edit product
 const startEdit = (product) => {
-  editMode.value = true;
-  editingProductId.value = product.id;
-  showForm.value = true;
+  editMode.value = true
+  editingProductId.value = product.id
+  showForm.value = true
 
   newProduct.value = {
     name: product.name,
@@ -624,30 +712,30 @@ const startEdit = (product) => {
     quantity: product.quantity,
     category_id: product.category_id,
     unit_id: product.unit_id,
-    image: null,
-  };
+    image: null
+  }
 
-  imagePreview.value = product.image_url || null;
-};
+  imagePreview.value = product.image_url || null
+}
 
-// Delete product
 const deleteProduct = async (id) => {
-  if (!confirm('Are you sure you want to delete this product?')) return;
+  if (!confirm('Are you sure you want to delete this product?')) return
   
   try {
-    await axios.delete(`/api/farmer/products/${id}`);
-    await fetchProducts();
+    await axios.delete(`/api/farmer/products/${id}`, {
+      headers: getAuthHeaders()
+    })
+    await fetchProducts()
   } catch (err) {
-    console.error('Failed to delete product:', err);
-    alert('Failed to delete product');
+    console.error('Failed to delete product:', err)
+    alert('Failed to delete product')
   }
-};
+}
 
-// Reset form
 const resetForm = () => {
-  showForm.value = false;
-  editMode.value = false;
-  editingProductId.value = null;
+  showForm.value = false
+  editMode.value = false
+  editingProductId.value = null
   newProduct.value = {
     name: '',
     description: '',
@@ -655,76 +743,380 @@ const resetForm = () => {
     quantity: '',
     category_id: '',
     unit_id: '',
-    image: null,
-  };
-  imagePreview.value = null;
-  if (fileInput.value) {
-    fileInput.value.value = '';
+    image: null
   }
-};
+  imagePreview.value = null
+  if (fileInput.value) {
+    fileInput.value.value = ''
+  }
+}
 
-// Cancel edit
 const cancelEdit = () => {
-  resetForm();
-};
+  resetForm()
+}
 
-// Messaging System
+const filteredProducts = computed(() => {
+  if (!selectedCategory.value) return products.value
+  return products.value.filter(product => product.category_id == selectedCategory.value)
+})
+
+const getCategoryName = (categoryId) => {
+  const category = categories.value.find(c => c.id == categoryId)
+  return category ? category.name : 'Uncategorized'
+}
+
+// Dashboard calculations
+const calculateMonthlyRevenue = () => {
+  const currentMonth = new Date().getMonth()
+  const currentYear = new Date().getFullYear()
+  
+  const monthlyTotal = sales.value
+    .filter(sale => {
+      const saleDate = new Date(sale.created_at)
+      return saleDate.getMonth() === currentMonth && saleDate.getFullYear() === currentYear
+    })
+    .reduce((total, sale) => total + parseFloat(sale.total_price || 0), 0)
+  
+  return monthlyTotal.toFixed(0)
+}
+
+const calculateAverageRating = () => {
+  if (!feedback.value || feedback.value.length === 0) return '0.0'
+  
+  const totalRating = feedback.value.reduce((sum, item) => sum + (item.rating || 0), 0)
+  const average = totalRating / feedback.value.length
+  
+  return average.toFixed(1)
+}
+
+// Messaging system
 const conversations = ref([]);
-const selectedConversation = ref(null);
-const messages = ref([]);
+const filteredConversations = ref([]);
+const currentConversation = ref(null);
 const newMessage = ref('');
 const unreadCount = ref(0);
+const loadingConversations = ref(false);
+const loadingMessages = ref(false);
+const conversationSearchQuery = ref('');
+const loadingMoreMessages = ref(false);
+const hasNoMessages = ref(false);
+const messageSending = ref(false);
+const selectedConversation = ref(null); // ← use this consistently
 const conversationsLoading = ref(false);
 const messagesLoading = ref(false);
-
+const userId = ref(1); // Current user ID
+// Fetch conversations with pagination support
 const fetchConversations = async () => {
   try {
-    conversationsLoading.value = true;
-    const res = await axios.get('/api/conversations', { headers: getAuthHeaders() });
+    loadingConversations.value = true;
+    const res = await axios.get('/api/conversations', { 
+      headers: getAuthHeaders()
+    });
+    
     conversations.value = res.data.data || res.data;
+    filteredConversations.value = [...conversations.value];
     calculateUnreadCount();
   } catch (error) {
     console.error('Error fetching conversations:', error);
+    alert('Failed to load conversations. Please try again.');
   } finally {
-    conversationsLoading.value = false;
+    loadingConversations.value = false;
   }
 };
 
+// Calculate unread messages count
 const calculateUnreadCount = () => {
   unreadCount.value = conversations.value.reduce((count, convo) => {
-    if (!convo.last_read_at || new Date(convo.last_message?.created_at) > new Date(convo.last_read_at)) {
-      return count + 1;
+    const lastMessageDate = convo.last_message?.created_at 
+      ? new Date(convo.last_message.created_at) 
+      : null;
+    const lastReadDate = convo.last_read_at 
+      ? new Date(convo.last_read_at) 
+      : null;
+      
+    if (!lastReadDate || (lastMessageDate && lastMessageDate > lastReadDate)) {
+      return count + (convo.unread_count || 1);
     }
     return count;
   }, 0);
 };
 
+// Search conversations by name or message content
+const searchConversations = () => {
+  if (!conversationSearchQuery.value.trim()) {
+    filteredConversations.value = [...conversations.value];
+    return;
+  }
+  
+  const query = conversationSearchQuery.value.toLowerCase().trim();
+  filteredConversations.value = conversations.value.filter(conv => {
+    return (
+      conv.user?.name?.toLowerCase().includes(query) ||
+      conv.last_message?.message?.toLowerCase().includes(query) ||
+      conv.product?.name?.toLowerCase().includes(query)
+    );
+  });
+};
+
+// Select a conversation and load its messages
+const selectConversation = async (conversation) => {
+  if (currentConversation.value?.id === conversation.id) return;
+  
+  try {
+    currentConversation.value = conversation;
+    loadingMessages.value = true;
+    hasNoMessages.value = false;
+
+    const res = await axios.get(`/api/conversations/${conversation.id}/messages`, {
+      headers: getAuthHeaders(),
+      params: {
+        page: 1,
+        per_page: 50
+      }
+    });
+
+    // Attach messages to the conversation
+    currentConversation.value.messages = res.data.data || res.data;
+    hasNoMessages.value = currentConversation.value.messages.length === 0;
+    
+    // Mark as read if there are messages
+    if (currentConversation.value.messages.length > 0) {
+      await markConversationAsRead();
+    }
+  } catch (error) {
+    console.error('Failed to load messages:', error);
+    alert('Could not load conversation. Please try again.');
+    currentConversation.value = null;
+  } finally {
+    loadingMessages.value = false;
+  }
+};
+
+// Load more messages for pagination
+const loadMoreMessages = async () => {
+  if (!currentConversation.value || loadingMoreMessages.value) return;
+  
+  try {
+    loadingMoreMessages.value = true;
+    const oldestMessage = currentConversation.value.messages[0];
+    const oldestMessageDate = oldestMessage?.created_at;
+    
+    const res = await axios.get(`/api/conversations/${currentConversation.value.id}/messages`, {
+      headers: getAuthHeaders(),
+      params: {
+        before: oldestMessageDate,
+        per_page: 20
+      }
+    });
+
+    const newMessages = res.data.data || res.data;
+    if (newMessages.length > 0) {
+      currentConversation.value.messages = [...newMessages, ...currentConversation.value.messages];
+    }
+  } catch (error) {
+    console.error('Error loading more messages:', error);
+  } finally {
+    loadingMoreMessages.value = false;
+  }
+};
+
+// Handle scroll events for infinite loading
+const handleScroll = (event) => {
+  const container = event.target;
+  if (container.scrollTop === 0 && !loadingMoreMessages.value) {
+    loadMoreMessages();
+  }
+};
+
+
+const sendMessage = async () => {
+  const messageContent = newMessage.value.trim();
+  if (!messageContent || !currentConversation.value || messageSending.value) return;
+
+  try {
+    messageSending.value = true;
+
+    // Create temporary message for optimistic UI
+    const tempMessage = {
+      id: `temp-${Date.now()}`,
+      message: messageContent,
+      sender_id: userId.value,
+      created_at: new Date().toISOString(),
+      status: 'pending',
+      sender: {
+        id: userId.value,
+        name: currentUser.value.name,
+        avatar_url: currentUser.value.avatar_url,
+      },
+    };
+
+    // Add to messages list
+    currentConversation.value.messages = [
+      ...currentConversation.value.messages,
+      tempMessage,
+    ];
+    newMessage.value = '';
+
+    // Scroll to bottom
+    nextTick(() => {
+      const container = document.querySelector('.messages-container');
+      if (container) {
+        container.scrollTop = container.scrollHeight;
+      }
+    });
+
+    // Send to server
+    const res = await axios.post(
+      `/api/conversations/${currentConversation.value.id}/send`,
+      {
+        message: messageContent,
+      },
+      {
+        headers: getAuthHeaders(),
+      }
+    );
+
+    // Replace temp message with server response
+    const newMessageData = res.data.data || res.data;
+    const messageIndex = currentConversation.value.messages.findIndex(
+      (m) => m.id === tempMessage.id
+    );
+    if (messageIndex !== -1) {
+      currentConversation.value.messages[messageIndex] = newMessageData;
+    } else {
+      currentConversation.value.messages = [
+        ...currentConversation.value.messages,
+        newMessageData,
+      ];
+    }
+  } catch (error) {
+    console.error('Error sending message:', error);
+    // Mark message as failed
+    const failedIndex = currentConversation.value.messages.findIndex(
+      (m) => m.id === `temp-${Date.now()}`
+    );
+    if (failedIndex !== -1) {
+      currentConversation.value.messages[failedIndex].status = 'failed';
+    }
+    alert('Failed to send message. Please try again.');
+  } finally {
+    messageSending.value = false;
+  }
+};
+
+// Mark conversation as read
+const markConversationAsRead = async () => {
+  if (!currentConversation.value) return;
+  
+  try {
+    await axios.post(
+      `/api/conversations/${currentConversation.value.id}/read`,
+      {},
+      { headers: getAuthHeaders() }
+    );
+    
+    // Update local state
+    const convIndex = conversations.value.findIndex(c => c.id === currentConversation.value.id);
+    if (convIndex !== -1) {
+      conversations.value[convIndex].last_read_at = new Date().toISOString();
+      conversations.value[convIndex].unread_count = 0;
+    }
+    
+    calculateUnreadCount();
+  } catch (error) {
+    console.error('Error marking conversation as read:', error);
+  }
+};
+
+// Get conversation title (user or product name)
+const getConversationTitle = (conversation) => {
+  return conversation.user?.name || conversation.product?.name || 'Unknown User';
+};
+
+// Get last message preview text
+const getLastMessagePreview = (conversation) => {
+  if (!conversation.last_message) return 'No messages yet';
+  
+  const message = conversation.last_message.message || '';
+  return message.length > 30 
+    ? message.substring(0, 30) + '...' 
+    : message;
+};
+
+// Check if we should show sender info (for grouped messages)
+const showSenderInfo = (message, index) => {
+  if (!currentConversation.value?.messages) return true;
+  
+  const messages = currentConversation.value.messages;
+  const prevMessage = messages[index - 1];
+  
+  // Show avatar if:
+  // 1. First message in conversation
+  // 2. Previous message was from a different sender
+  // 3. Previous message was more than 5 minutes ago
+  if (!prevMessage) return true;
+  
+  if (prevMessage.sender_id !== message.sender_id) return true;
+  
+  const currentTime = new Date(message.created_at);
+  const prevTime = new Date(prevMessage.created_at);
+  const timeDiff = (currentTime - prevTime) / (1000 * 60); // in minutes
+  
+  return timeDiff > 5;
+};
+
+// Initialize messaging system
+onMounted(() => {
+  fetchConversations();
+  
+  // Optional: Set up real-time updates with WebSocket or polling
+  // setupRealTimeUpdates();
+});
+// ✅ ADD: Watch for new messages in current conversation
+watch(
+  () => currentConversation.value?.messages?.length,
+  (newLength, oldLength) => {
+    // Only auto-scroll if messages were added (not initial load)
+    if (oldLength && newLength > oldLength) {
+      const wasAtBottom = isScrolledToBottom();
+      if (wasAtBottom) {
+        nextTick(() => scrollToBottom(true));
+      }
+    }
+  }
+);
+ const scrollToBottom = (smooth = true) => {
+  nextTick(() => {
+    const container = messagesContainer.value;
+    if (container) {
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior: smooth ? 'smooth' : 'auto'
+      });
+    }
+  });
+};
+
+
 // Feedback management
-const feedbackLoading = ref(true)
 const feedback = ref([])
+const feedbackLoading = ref(true)
 const pagination = ref({})
 const replies = reactive({})
 const sendingReply = reactive({})
-
-const getAuthHeaders = () => {
-  const token = localStorage.getItem('token')
-  return {
-    Authorization: `Bearer ${token}`,
-  }
-}
 
 const fetchFeedback = async (page = 1) => {
   feedbackLoading.value = true
   try {
     const res = await axios.get(`/api/feedbacks/farmer?page=${page}`, {
-      headers: getAuthHeaders(),
+      headers: getAuthHeaders()
     })
     feedback.value = res.data.data
     pagination.value = {
       current_page: res.data.current_page,
       last_page: res.data.last_page,
       per_page: res.data.per_page,
-      total: res.data.total,
+      total: res.data.total
     }
 
     feedback.value.forEach((fb) => {
@@ -744,16 +1136,47 @@ const sendReply = async (id) => {
   if (!replies[id]) return alert('Reply cannot be empty.')
   sendingReply[id] = true
   try {
-    await axios.post(`/api/reviews/${id}/reply`, { reply: replies[id] }, {
-      headers: getAuthHeaders(),
-    })
+    await axios.post(
+      `/api/reviews/${id}/reply`, 
+      { reply: replies[id] }, 
+      { headers: getAuthHeaders() }
+    )
     alert('Reply sent successfully.')
-    fetchFeedback()
+    fetchFeedback(pagination.value.current_page)
   } catch (err) {
     console.error('Failed to send reply:', err)
     alert('Failed to send reply.')
   } finally {
     sendingReply[id] = false
+  }
+}
+
+const approveFeedback = async (id) => {
+  try {
+    await axios.post(
+      `/api/reviews/${id}/approve`, 
+      {}, 
+      { headers: getAuthHeaders() }
+    )
+    alert('Feedback approved successfully.')
+    fetchFeedback(pagination.value.current_page)
+  } catch (err) {
+    console.error('Failed to approve feedback:', err)
+    alert('Failed to approve feedback.')
+  }
+}
+
+const deleteFeedback = async (id) => {
+  if (!confirm('Are you sure you want to delete this feedback?')) return
+  try {
+    await axios.delete(`/api/reviews/${id}`, {
+      headers: getAuthHeaders()
+    })
+    alert('Feedback deleted successfully.')
+    fetchFeedback(pagination.value.current_page)
+  } catch (err) {
+    console.error('Failed to delete feedback:', err)
+    alert('Failed to delete feedback.')
   }
 }
 
@@ -763,61 +1186,73 @@ const changePage = (page) => {
   }
 }
 
-// Sales History
-const sales = ref([]);
-const salesLoading = ref(false);
+// Sales history
+const sales = ref([])
+const salesLoading = ref(false)
 
 const fetchSales = async () => {
   try {
-    salesLoading.value = true;
-    const res = await axios.get('/api/farmer/sales-history', { headers: getAuthHeaders() });
-    sales.value = res.data;
+    salesLoading.value = true
+    const res = await axios.get('/api/farmer/sales-history', {
+      headers: getAuthHeaders()
+    })
+    sales.value = res.data
   } catch (error) {
-    console.error('Error fetching sales history', error);
+    console.error('Error fetching sales history', error)
   } finally {
-    salesLoading.value = false;
+    salesLoading.value = false
   }
-};
+}
 
-// Utility Functions
+// Utility functions
 const formatDate = (dateString) => {
-  return new Date(dateString).toLocaleDateString();
-};
+  return new Date(dateString).toLocaleDateString()
+}
 
 const formatTime = (dateString) => {
-  return new Date(dateString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-};
+  return new Date(dateString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('token')
+  return {
+    Authorization: `Bearer ${token}`
+  }
+}
 
 // Initialize data
 onMounted(async () => {
-  await fetchProducts();
-  await fetchCategories();
-  await fetchFeedback();
-  await fetchSales();
-});
+  await fetchProducts()
+  await fetchCategories()
+  await fetchUnits()
+  await fetchFeedback()
+  await fetchSales()
+})
 </script>
 
 <style scoped>
-.dashboard {
-  display: flex;
-  min-height: 100vh;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  background:  rgba(30, 41, 59, 0.95);
-    position: relative;
-
-  body, html {
+/* Your existing styles remain unchanged */
+* {
   margin: 0;
   padding: 0;
-  top: 0;
-  left: 0;
-  right: 0;
-  box-sizing: border-box; /* Ensure consistent box model */
-}
+  box-sizing: border-box;
 }
 
-/* Sidebar */
+.app-container {
+  display: flex;
+  min-height: 100vh;
+  background: rgba(30, 41, 59, 0.95);
+  font-family: 'Segoe UI', sans-serif;
+  color: white;
+  position: relative;
+}
+
 .sidebar {
   width: 250px;
+  height: calc(100vh - 72px);
+  position: fixed;
+  top: 72px;
+  left: 0;
   background: rgba(30, 41, 59, 0.95);
   backdrop-filter: blur(10px);
   color: white;
@@ -825,20 +1260,20 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 2rem;
-  box-shadow: 2px 0 20px rgba(0,0,0,0.1);
+  box-shadow: 2px 0 20px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  overflow-y: auto;
 }
 
 .sidebar h2 {
   font-size: 1.5rem;
   font-weight: bold;
-  text-align: center;
   color: #10b981;
-  margin-bottom: 1rem;
+  text-align: center;
 }
 
 .sidebar nav ul {
   list-style: none;
-  padding: 0;
 }
 
 .sidebar nav li {
@@ -855,7 +1290,6 @@ onMounted(async () => {
 
 .sidebar nav li:hover {
   background: rgba(255, 255, 255, 0.1);
-  transform: translateX(5px);
 }
 
 .sidebar nav li.active {
@@ -872,45 +1306,29 @@ onMounted(async () => {
   margin-left: auto;
 }
 
-/* Push all dashboard sections down */
-.dashboard-overview,
-.farmer-listings,
-.consumer-dashboard-messages,
-.view-feedback,
-.sales-grid {
-  margin-top: 100px;
+.main-wrapper {
+  flex: 1;
+  margin-left: 250px;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
 }
 
-/* Dashboard Header */
 .dashboard-header {
+  position: fixed;
+  top: 0;
+  left: 250px;
+  right: 0;
+  height: 72px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  padding: 1.7rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(20px);
-  padding: 1.5rem;
-  border-radius: 0px;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 1000;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  min-height: 72px; /* Ensure consistent height */
-  box-sizing: border-box;
-}
-
-/* Main Content */
-.main-content {
-  flex: 1;
-  padding: 2rem;
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(10px);
-  overflow-y: auto;
-  
-  /* Prevent overlap with fixed header */
-  padding-top: calc(2rem + 72px); /* 32px + 72px = 104px */
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  z-index: 400;
+  color: white;
 }
 
 .greeting h2 {
@@ -918,18 +1336,14 @@ onMounted(async () => {
   font-size: 1.8rem;
   color: white;
   font-weight: 600;
-    text-align: center;
-
-
 }
 
 .greeting p {
   margin: 0.5rem 0 0 0;
   color: rgba(255, 255, 255, 0.8);
   font-size: 1rem;
-    text-align: center;
-
 }
+
 .user-profile {
   width: 60px;
   height: 60px;
@@ -960,34 +1374,16 @@ onMounted(async () => {
   color: white;
 }
 
-/* Search Container */
-.search-container {
-  margin-bottom: 2rem;
-}
-
-.search-bar {
-  width: 100%;
-  padding: 1rem 1.5rem;
-  font-size: 1rem;
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  border-radius: 50px;
-  background: rgba(255, 255, 255, 0.1);
+.main-content {
+  flex: 1;
+  padding: 2rem;
+  padding-top: 92px;
+  background: rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(10px);
+  overflow-y: auto;
   color: white;
-  outline: none;
-  transition: all 0.3s ease;
 }
 
-.search-bar::placeholder {
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.search-bar:focus {
-  border-color: #10b981;
-  box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
-}
-
-/* Stats Grid */
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -1031,7 +1427,6 @@ onMounted(async () => {
   letter-spacing: 0.5px;
 }
 
-/* Content Sections */
 .content-section {
   background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(20px);
@@ -1048,7 +1443,6 @@ onMounted(async () => {
   margin-bottom: 1.5rem;
 }
 
-/* Quick Actions */
 .quick-actions {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -1075,7 +1469,6 @@ onMounted(async () => {
   box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3);
 }
 
-/* Activity List */
 .activity-list {
   display: flex;
   flex-direction: column;
@@ -1126,7 +1519,6 @@ onMounted(async () => {
   font-style: italic;
 }
 
-/* Listings Section */
 .farmer-listings {
   background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(20px);
@@ -1164,7 +1556,6 @@ onMounted(async () => {
   box-shadow: 0 8px 20px rgba(16, 185, 129, 0.3);
 }
 
-/* Filter Controls */
 .filter-controls {
   margin-bottom: 2rem;
 }
@@ -1184,7 +1575,6 @@ onMounted(async () => {
   color: white;
 }
 
-/* Form Styles */
 .form {
   background: rgba(255, 255, 255, 0.05);
   padding: 2rem;
@@ -1258,7 +1648,6 @@ onMounted(async () => {
   border-color: rgba(255, 255, 255, 0.4);
 }
 
-/* Image Preview */
 .image-preview {
   margin-top: 1rem;
   position: relative;
@@ -1285,7 +1674,6 @@ onMounted(async () => {
   font-size: 0.8rem;
 }
 
-/* Product Grid */
 .product-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -1398,7 +1786,6 @@ onMounted(async () => {
   box-shadow: 0 5px 15px rgba(239, 68, 68, 0.3);
 }
 
-/* Empty State */
 .empty-state {
   text-align: center;
   color: rgba(255, 255, 255, 0.6);
@@ -1407,7 +1794,6 @@ onMounted(async () => {
   font-size: 1.1rem;
 }
 
-/* Feedback Section */
 .view-feedback h2 {
   color: white;
   margin-bottom: 2rem;
@@ -1480,7 +1866,6 @@ onMounted(async () => {
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
 }
 
-/* Pagination */
 .pagination {
   display: flex;
   justify-content: center;
@@ -1509,7 +1894,6 @@ onMounted(async () => {
   cursor: not-allowed;
 }
 
-/* Sales Section */
 .sales-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -1570,7 +1954,6 @@ onMounted(async () => {
   font-size: 1.1rem;
 }
 
-/* Loading States */
 .loading {
   text-align: center;
   color: rgba(255, 255, 255, 0.7);
@@ -1578,41 +1961,391 @@ onMounted(async () => {
   font-style: italic;
 }
 
+/* Messaging section styles */
+.messaging-section {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 20px;
+  padding: 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.messaging-container {
+  display: flex;
+  height: 70vh;
+  border-radius: 15px;
+  overflow: hidden;
+}
+
+.conversation-list {
+  width: 300px;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  overflow-y: auto;
+}
+
+.conversation-header {
+  padding: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.search-conversations input {
+  width: 100%;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  margin-top: 1rem;
+}
+
+.conversations-list {
+  list-style: none;
+}
+
+.conversation-item {
+  padding: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.conversation-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.conversation-item.active {
+  background: rgba(16, 185, 129, 0.2);
+}
+
+.conversation-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.conversation-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.conversation-details {
+  flex: 1;
+}
+
+.conversation-header-row {
+  display: flex;
+  justify-content: space-between;
+}
+
+.conversation-title {
+  font-weight: 600;
+}
+
+.timestamp {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.last-message {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 0.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.unread-indicator {
+  background: #ef4444;
+  color: white;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+}
+
+.chat-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.select-conversation {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
+}
+
+.select-conversation svg {
+  margin-bottom: 1rem;
+}
+
+.chat-header {
+  padding: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.header-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.header-info h4 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.status {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 0.25rem;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.action-button {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 50%;
+}
+
+.action-button:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.messages-container {
+  flex: 1;
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+.messages-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.message-wrapper {
+  display: flex;
+}
+
+.sent {
+  justify-content: flex-end;
+}
+
+.received {
+  justify-content: flex-start;
+}
+
+.received-message {
+  display: flex;
+  gap: 0.5rem;
+  max-width: 70%;
+}
+
+.sender-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  align-self: flex-end;
+}
+
+.message-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.message-bubble {
+  padding: 0.75rem 1rem;
+  border-radius: 18px;
+  max-width: 100%;
+  word-wrap: break-word;
+}
+
+.message-bubble.sent {
+  background: linear-gradient(135deg, #10b981, #059669);
+  border-bottom-right-radius: 4px;
+}
+
+.message-bubble.received {
+  background: rgba(255, 255, 255, 0.1);
+  border-bottom-left-radius: 4px;
+}
+
+.message-meta {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.timestamp {
+  font-size: 0.7rem;
+  opacity: 0.8;
+}
+
+.message-status svg {
+  width: 14px;
+  height: 14px;
+}
+
+.message-input {
+  display: flex;
+  padding: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.input-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.emoji-button,
+.attachment-button {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 50%;
+}
+
+.emoji-button:hover,
+.attachment-button:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.input-wrapper {
+  flex: 1;
+}
+
+.input-wrapper input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.send-button {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 50%;
+}
+
+.send-button.active {
+  color: #10b981;
+}
+
+.loading-state,
+.loading-more-messages {
+  text-align: center;
+  padding: 1rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.loading-spinner {
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-top: 2px solid #10b981;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 0.5rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
-  .dashboard {
+  .app-container {
     flex-direction: column;
   }
   
   .sidebar {
     width: 100%;
     height: auto;
+    position: static;
     padding: 1rem;
   }
   
-  .sidebar nav ul {
-    display: flex;
-    overflow-x: auto;
-    gap: 0.5rem;
-  }
-  
-  .sidebar nav li {
-    white-space: nowrap;
-    min-width: fit-content;
-  }
-  
-  .main-content {
-    padding: 1rem;
+  .main-wrapper {
+    margin-left: 0;
   }
   
   .dashboard-header {
-    flex-direction: column;
-    text-align: center;
-    gap: 1rem;
+    left: 0;
+  }
+  
+  .main-content {
+    padding-top: 1rem;
   }
   
   .stats-grid {
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: 1fr 1fr;
+  }
+  
+  .quick-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+  
+  .messaging-container {
+    flex-direction: column;
+    height: auto;
+  }
+  
+  .conversation-list {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  .chat-area {
+    height: 60vh;
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
   }
   
   .quick-actions {
@@ -1631,10 +2364,6 @@ onMounted(async () => {
     grid-template-columns: 1fr;
   }
   
-  .form-actions {
-    flex-direction: column;
-  }
-  
   .feedback-table {
     font-size: 0.8rem;
   }
@@ -1644,5 +2373,4 @@ onMounted(async () => {
     padding: 0.5rem;
   }
 }
-
-    </style>
+</style>

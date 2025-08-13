@@ -13,8 +13,19 @@ class Message extends Model
         return $this->belongsTo(Conversation::class);
     }
 
-    public function sender(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'sender_id');
-    }
+    public function sender()
+{
+    return $this->belongsTo(User::class, 'user_id');  // or 'sender_id' if it exists
+}
+
+    public function users()
+{
+    return $this->belongsToMany(User::class, 'conversation_user');
+}
+
+public function messages()
+{
+    return $this->hasMany(Message::class);
+}
+
 }
