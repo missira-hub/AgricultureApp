@@ -100,8 +100,6 @@
     <div class="spinner"></div>
     <p>Loading...</p>
   </div>
-
-  
 <!-- MESSAGES SECTION -->
 <section v-if="section === 'messages'" class="messaging-section">
   <div class="messaging-container">
@@ -124,7 +122,7 @@
         <p>Loading conversations...</p>
       </div>
 
-      <!-- Empty State -->
+      <!-- Empty State - No Conversations -->
       <div v-else-if="filteredConversations.length === 0" class="empty-state">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
@@ -141,11 +139,13 @@
           :class="['conversation-item', { active: currentConversation?.id === conv.id }]"
         >
           <div class="conversation-info">
+            <!-- Avatar -->
             <img
               :src="conv.avatarUrl || '/default-avatar.png'"
               alt="Avatar"
               class="conversation-avatar"
             />
+
             <div class="conversation-details">
               <div class="conversation-header-row">
                 <strong class="conversation-title">{{ getConversationTitle(conv) }}</strong>
@@ -153,6 +153,8 @@
               </div>
               <p class="last-message">{{ getLastMessagePreview(conv) }}</p>
             </div>
+
+            <!-- Unread Badge -->
             <div v-if="conv.unread_count > 0" class="unread-indicator">
               {{ conv.unread_count > 9 ? '9+' : conv.unread_count }}
             </div>
@@ -163,16 +165,16 @@
 
     <!-- Chat Area (Right Side) -->
     <div class="chat-area">
-      <!-- Placeholder -->
+      <!-- Placeholder: No Conversation Selected -->
       <div v-if="!currentConversation" class="select-conversation">
         <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
         </svg>
         <h3>Select a conversation</h3>
-        <p>Start messaging your contacts</p>
+        <p>Choose a conversation to start messaging</p>
       </div>
 
-      <!-- Active Chat -->
+      <!-- Active Conversation View -->
       <div v-else>
         <!-- Chat Header -->
         <div class="chat-header">
@@ -184,9 +186,8 @@
             />
             <div class="header-info">
               <h4>{{ getConversationTitle(currentConversation) }}</h4>
-              <p class="status">
-                {{ currentConversation.isOnline ? 'Online' : `Last seen ${formatTime(currentConversation.lastSeen)}` }}
-              </p>
+              <p v-if="currentConversation.isOnline" class="status">Online</p>
+              <p v-else class="status">Last seen {{ formatTime(currentConversation.lastSeen) }}</p>
             </div>
           </div>
           <div class="header-actions">
@@ -210,6 +211,7 @@
           class="messages-container"
           ref="messagesContainer"
           @scroll.passive="handleScroll"
+          style="overflow-y: auto; height: 60vh;"
         >
           <!-- Loading More Messages (top) -->
           <div v-if="loadingMoreMessages" class="loading-more-messages">
@@ -232,28 +234,17 @@
               v-for="message in currentConversation.messages"
               :key="message.id"
               class="message-wrapper"
-              :class="{ sent: message.sender_id === userId, received: message.sender_id !== userId }"
+              :class="{ 'sent': message.sender_id === userId, 'received': message.sender_id !== userId }"
             >
-              <!-- Received Message -->
+              <!-- RECEIVED MESSAGE (from other person) -->
               <div v-if="message.sender_id !== userId" class="received-message">
-               <!-- Show sender avatar only for RECEIVED messages -->
-<div v-if="message.sender_id !== userId" class="received-message">
-  <img
-    :src="message.sender_avatar || '/default-avatar.png'"
-    :alt="message.sender_name"
-    class="sender-avatar"
-  />
-  <div class="message-content">
-    <div class="message-bubble received">
-      <!-- Optional: Show sender name above message -->
-      <strong class="sender-name">{{ message.sender_name }}</strong>
-      <p>{{ message.message }}</p>
-      <div class="message-meta">
-        <span class="timestamp">{{ formatTime(message.created_at) }}</span>
-      </div>
-    </div>
-  </div>
-</div>
+                <!-- Show avatar only if this is the first message or sender changed -->
+                <img
+                  v-if="showSenderInfo(message)"
+                  :src="message.sender_avatar_url || '/default-avatar.png'"
+                  alt="Sender"
+                  class="sender-avatar"
+                />
                 <div class="message-content">
                   <div class="message-bubble received">
                     <p>{{ message.message }}</p>
@@ -264,7 +255,7 @@
                 </div>
               </div>
 
-              <!-- Sent Message -->
+              <!-- SENT MESSAGE (by you) -->
               <div v-else class="sent-message">
                 <div class="message-content">
                   <div class="message-bubble sent">
@@ -272,13 +263,13 @@
                     <div class="message-meta">
                       <span class="timestamp">{{ formatTime(message.created_at) }}</span>
                       <span class="message-status">
-                        <svg v-if="message.status === 'pending'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <svg v-if="message.status === 'pending'" class="status-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                           <path d="M16 8v8l-8-4 8-4z"/>
                         </svg>
-                        <svg v-else-if="message.status === 'sent'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <svg v-else-if="message.status === 'sent'" class="status-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                           <path d="M5 13l4 4L19 7"/>
                         </svg>
-                        <svg v-else-if="message.status === 'delivered'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <svg v-else-if="message.status === 'delivered'" class="status-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                           <path d="M5 13l4 4L19 7" stroke-width="2"/>
                         </svg>
                       </span>
@@ -289,7 +280,7 @@
             </div>
           </div>
 
-          <!-- Initial Loading -->
+          <!-- Initial Loading Spinner -->
           <div v-if="loadingMessages && !hasNoMessages" class="loading-state">
             <p>Loading messages...</p>
           </div>
