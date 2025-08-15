@@ -11,18 +11,12 @@ class Order extends Model
 {
     use HasFactory;
 
-    protected $fillable = [
-        'user_id',
-        'total_price',
-    ];
+  protected $fillable = [
+    'user_id',
+    'total',
+    'status', // ✅ Add this
+];
 
-    /**
-     * Get the order items for this order.
-     */
-    public function items()
-    {
-        return $this->hasMany(OrderItem::class);
-    }
 
     /**
      * Get the user who placed this order.
@@ -30,5 +24,13 @@ class Order extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Get the order items for this order.
+     */
+    public function items()
+    {
+        return $this->hasMany(OrderItem::class);
     }
 }
