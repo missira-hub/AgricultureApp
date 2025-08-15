@@ -3,7 +3,7 @@
     <h1>Payment Successful! 🎉</h1>
     <p>Your order has been confirmed and payment is complete.</p>
 
-    <button @click="goToOrders">Go to Your Orders</button>
+    <button @click="goToOrders">Go back</button>
   </div>
 </template>
 

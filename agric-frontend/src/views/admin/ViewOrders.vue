@@ -1,15 +1,21 @@
 <template>
-  <div class="view-orders">
-    <h2>📦 Manage Orders</h2>
+  <div class="admin-orders">
+    <h2>Order Management</h2>
 
-    <table class="orders-table" v-if="orders.length">
+    <!-- Error Message -->
+    <div v-if="error" class="error-message">
+      {{ error }}
+    </div>
+
+    <!-- Orders Table -->
+    <table class="order-table">
       <thead>
         <tr>
-          <th>Order ID</th>
-          <th>User</th>
-          <th>Total Price</th>
+          <th>ID</th>
+          <th>Buyer</th>
+          <th>Total</th>
           <th>Status</th>
-          <th>Placed At</th>
+          <th>Items</th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -17,200 +23,239 @@
         <tr v-for="order in orders" :key="order.id">
           <td>{{ order.id }}</td>
           <td>{{ order.user?.name || 'Unknown' }}</td>
-          <td>{{ order.total_price | currency }}</td>
-          <td>{{ order.status }}</td>
-          <td>{{ new Date(order.created_at).toLocaleString() }}</td>
+          <td>{{ formatPrice(order.total_price) }} ₺</td>
           <td>
-            <button @click="viewOrder(order.id)" class="btn-view">View</button>
+            <select v-model="order.status" @change="updateOrderStatus(order)" class="status-select">
+              <option value="pending">Pending</option>
+              <option value="paid">Paid</option>
+              <option value="shipped">Shipped</option>
+              <option value="delivered">Delivered</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </td>
+          <td>
+            <ul class="items-list">
+              <li v-for="item in order.order_items" :key="item.id">
+                {{ item.product?.name || 'Deleted Product' }} × {{ item.quantity }}
+              </li>
+            </ul>
+          </td>
+          <td>
+            <button @click="confirmDelete(order)" class="delete-btn">Delete</button>
           </td>
         </tr>
       </tbody>
     </table>
 
-    <p v-else>No orders found.</p>
-
-    <!-- Order details modal -->
-    <div v-if="showModal" class="modal-backdrop" @click.self="closeModal">
-      <div class="modal">
-        <h3>Order Details (ID: {{ selectedOrder.id }})</h3>
-
-        <p><strong>User:</strong> {{ selectedOrder.user?.name || 'Unknown' }}</p>
-        <p><strong>Status:</strong> {{ selectedOrder.status }}</p>
-        <p><strong>Placed At:</strong> {{ new Date(selectedOrder.created_at).toLocaleString() }}</p>
-        <p><strong>Total Price:</strong> {{ selectedOrder.total_price | currency }}</p>
-
-        <h4>Items</h4>
-        <ul>
-          <li v-for="item in selectedOrder.orderItems" :key="item.id">
-            {{ item.product?.name || 'Unknown product' }} — Quantity: {{ item.quantity }}, Price: {{ item.price | currency }}
-          </li>
-        </ul>
-
-        <button @click="closeModal" class="btn-close">Close</button>
-      </div>
-    </div>
-
-    <!-- Pagination -->
-    <div class="pagination" v-if="pagination.total > pagination.per_page">
-      <button :disabled="pagination.current_page === 1" @click="changePage(pagination.current_page - 1)">Prev</button>
-      <span>Page {{ pagination.current_page }} / {{ pagination.last_page }}</span>
-      <button :disabled="pagination.current_page === pagination.last_page" @click="changePage(pagination.current_page + 1)">Next</button>
-    </div>
+    <!-- Reload Button -->
+    <button @click="fetchOrders" :disabled="loading" class="reload-btn">
+      {{ loading ? 'Loading...' : 'Reload Orders' }}
+    </button>
   </div>
 </template>
 
-<script>
-import axios from 'axios'
+<script setup>
+import { ref, onMounted } from 'vue';
+import axios from 'axios';
 
-export default {
-  name: 'ViewOrders',
-  data() {
-    return {
-      orders: [],
-      pagination: {},
-      showModal: false,
-      selectedOrder: {},
+// State
+const orders = ref([]);
+const error = ref('');
+const loading = ref(false);
+
+// Fetch Orders
+const fetchOrders = async () => {
+  error.value = '';
+  loading.value = true;
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      error.value = 'Not authenticated. Please log in.';
+      return;
     }
-  },
-  filters: {
-    currency(value) {
-      if (typeof value !== "number") return value
-      return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)
+
+    const res = await axios.get('/api/admin/orders', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    // Laravel pagination: extract data from 'data' array
+    orders.value = Array.isArray(res.data.data) ? res.data.data : [];
+  } catch (err) {
+    console.error('Failed to fetch orders:', err);
+    if (err.response?.status === 401) {
+      error.value = 'Session expired. Please log in again.';
+      localStorage.removeItem('token');
+    } else if (err.response?.status === 403) {
+      error.value = 'Access denied. Admins only.';
+    } else {
+      error.value = 'Failed to load orders. Please try again later.';
     }
-  },
-  methods: {
-    fetchOrders(page = 1) {
-      axios.get(`/api/admin/orders?page=${page}`)
-        .then(res => {
-          this.orders = res.data.data
-          this.pagination = {
-            current_page: res.data.current_page,
-            last_page: res.data.last_page,
-            per_page: res.data.per_page,
-            total: res.data.total,
-          }
-        })
-        .catch(err => {
-          console.error('Error fetching orders:', err)
-        })
-    },
-    viewOrder(id) {
-      axios.get(`/api/admin/orders/${id}`)
-        .then(res => {
-          this.selectedOrder = res.data
-          this.showModal = true
-        })
-        .catch(err => {
-          console.error('Error fetching order details:', err)
-        })
-    },
-    closeModal() {
-      this.showModal = false
-      this.selectedOrder = {}
-    },
-    changePage(page) {
-      if (page >= 1 && page <= this.pagination.last_page) {
-        this.fetchOrders(page)
-      }
-    }
-  },
-  mounted() {
-    this.fetchOrders()
+  } finally {
+    loading.value = false;
   }
-}
+};
+
+// Update Order Status
+const updateOrderStatus = async (order) => {
+  try {
+    const token = localStorage.getItem('token');
+    await axios.put(
+      `/api/admin/orders/${order.id}`,
+      { status: order.status },
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+    alert(`Order #${order.id} status updated to "${order.status}".`);
+  } catch (err) {
+    console.error('Failed to update order status:', err);
+    alert('Failed to update status. Please try again.');
+    // Re-fetch to sync
+    fetchOrders();
+  }
+};
+
+// Confirm and Delete Order
+const confirmDelete = (order) => {
+  // Prevent deletion if status is 'paid' or beyond
+  if (['paid', 'shipped', 'delivered'].includes(order.status)) {
+    alert('Cannot delete: This order has already been processed (paid or shipped).');
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `Are you sure you want to delete order #${order.id}? This action cannot be undone.`
+  );
+
+  if (confirmed) {
+    deleteOrder(order.id);
+  }
+};
+
+// Delete Order
+const deleteOrder = async (id) => {
+  try {
+    const token = localStorage.getItem('token');
+    await axios.delete(`/api/admin/orders/${id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    // Remove from UI
+    orders.value = orders.value.filter((order) => order.id !== id);
+    alert('Order deleted successfully.');
+  } catch (err) {
+    console.error('Failed to delete order:', err);
+    if (err.response?.status === 404) {
+      alert('Order not found.');
+    } else if (err.response?.status === 403) {
+      alert('Permission denied.');
+    } else {
+      alert('Delete failed. Please try again.');
+    }
+    // Sync with backend
+    fetchOrders();
+  }
+};
+
+// Format price safely
+const formatPrice = (price) => {
+  const num = parseFloat(price);
+  return isNaN(num) ? '0.00' : num.toFixed(2);
+};
+
+// Load orders on mount
+onMounted(() => {
+  fetchOrders();
+});
 </script>
 
 <style scoped>
-.view-orders {
-  padding: 1rem;
+.admin-orders {
+  padding: 20px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-.orders-table {
+h2 {
+  color: #1f2937;
+  margin-bottom: 20px;
+}
+
+.error-message {
+  padding: 12px;
+  background-color: #fee2e2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  color: #b91c1c;
+  margin-bottom: 1rem;
+}
+
+.order-table {
   width: 100%;
   border-collapse: collapse;
+  margin-bottom: 20px;
   background: white;
-  box-shadow: 0 0 5px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
 }
 
-.orders-table th,
-.orders-table td {
-  padding: 0.75rem;
-  border-bottom: 1px solid #ccc;
+.order-table th {
+  background-color: #f3f4f6;
+  color: #374151;
+  font-weight: 600;
+  padding: 12px;
   text-align: left;
 }
 
-.btn-view {
-  background-color: #2563eb;
-  border: none;
-  color: white;
-  padding: 0.4rem 0.7rem;
-  border-radius: 5px;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-}
-.btn-view:hover {
-  background-color: #1d4ed8;
+.order-table td {
+  padding: 12px;
+  border-top: 1px solid #e5e7eb;
 }
 
-/* Modal styles */
-.modal-backdrop {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right:0;
-  bottom:0;
-  background: rgba(0,0,0,0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
+.items-list {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 14px;
+  list-style-type: disc;
 }
 
-.modal {
+.status-select {
+  padding: 6px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
   background: white;
-  padding: 1rem 1.5rem;
-  border-radius: 8px;
-  max-width: 600px;
-  width: 90%;
-  max-height: 80vh;
-  overflow-y: auto;
-  box-shadow: 0 0 10px rgba(0,0,0,0.25);
+  font-size: 14px;
+  min-width: 100px;
 }
 
-.btn-close {
+.delete-btn {
+  padding: 6px 12px;
   background-color: #ef4444;
-  border: none;
   color: white;
-  padding: 0.4rem 0.7rem;
-  border-radius: 5px;
-  cursor: pointer;
-  margin-top: 1rem;
-  float: right;
-}
-.btn-close:hover {
-  background-color: #b91c1c;
-}
-
-/* Pagination */
-.pagination {
-  margin-top: 1rem;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 1rem;
-}
-
-.pagination button {
-  background-color: #2563eb;
   border: none;
-  color: white;
-  padding: 0.5rem 1rem;
   border-radius: 6px;
   cursor: pointer;
+  font-size: 14px;
 }
-.pagination button[disabled] {
-  background-color: #a5b4fc;
+
+.delete-btn:hover {
+  background-color: #dc2626;
+}
+
+.reload-btn {
+  padding: 10px 20px;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.reload-btn:disabled {
+  background-color: #9ca3af;
   cursor: not-allowed;
 }
 </style>
-

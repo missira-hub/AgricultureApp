@@ -436,6 +436,12 @@
     <button @click="submitReview(product.id)">Submit</button>
   </div>
 </div>
+
+<!-- Message Farmer Button -->
+<button class="message-farmer-btn" @click="goToMessaging(product)">
+  💬 Message the Farmer
+</button>
+
 <!-- Quantity + Unit + Add to Cart -->
 <div class="quantity-cart">
   <input
@@ -445,6 +451,7 @@
     :max="product.quantity"
     placeholder="Qty"
   />
+  
 
   <!-- Dropdown for unit -->
 <select v-model="selectedUnits[product.id]">
@@ -469,6 +476,7 @@
   </div>
 </div>
   </div>
+
 </section>
 
 <section v-if="section === 'cart' && !loading" class="cart-page">
@@ -836,6 +844,38 @@ const switchSection = async (target) => {
 };
 
 
+const selectedFarmer = ref(null);
+
+
+// ✅ Define the function
+const openChatWith = (farmerId) => {
+  console.log('Opening chat with farmer:', farmerId);
+
+  // Example logic:
+  currentConversation.value = {
+    farmerId,
+    messages: [], // You can load from API
+    isTyping: false,
+  };
+
+  // Optional: fetch messages
+  // loadMessages(farmerId);
+};
+const goToMessaging = (product) => {
+  // ✅ Match the v-if condition: 'messages', not 'messaging'
+  section.value = 'messages';
+
+  // Set the farmer to start chat with
+  selectedFarmer.value = product.user;
+
+  // Wait for DOM update, then scroll
+  nextTick(() => {
+    const msgSection = document.querySelector('.messaging-section');
+    if (msgSection) {
+      msgSection.scrollIntoView({ behavior: 'smooth' });
+    }
+  });
+};
 watch(counter, (newVal, oldVal) => {
   console.log(`Counter changed from ${oldVal} to ${newVal}`)
 })
@@ -2345,6 +2385,34 @@ const goToProduct = (product) => {
   background-color: #1d4ed8;
 }
 
+.message-farmer-btn {
+  margin-top: 12px;
+  padding: 8px 65px;
+  background-color: #a8a00fff;; /* Emerald green */
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: background-color 0.2s ease;
+}
+
+.message-farmer-btn:hover {
+  background-color: #0d9488;
+}
+
+/* On small screens */
+@media (max-width: 600px) {
+  .message-farmer-btn {
+    font-size: 15px;
+    padding: 10px 14px;
+  }
+}
 
     
 
@@ -3379,26 +3447,28 @@ body.payment-active {
 .send-button.active {
   color: #2a7fff;
 }
+
+
 .messaging-section {
   display: flex;
   height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: rgba(30, 41, 59, 0.95); /* ✅ changed background */
   justify-content: center;
   align-items: center;
-  padding: 20px;
+  padding: 0; /* removed extra padding to fill screen */
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   margin: 0;
 }
 
 .messaging-container {
   display: flex;
-  width: 90%;
-  max-width: 1200px;
-  height: 85vh;
+  width: 100%; /* ✅ full width */
+  height: 680px; /* Fixed height (or use 80vh) */
   background-color: white;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-  border-radius: 12px;
+  border-radius: 0; /* removed rounding for full-screen look */
   overflow: hidden;
+  position:fixed;
 }
 
 /* Left sidebar */

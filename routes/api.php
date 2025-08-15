@@ -71,10 +71,13 @@ Route::middleware('auth:sanctum')->prefix('admin')->group(function () {
     Route::get('/products', [ProductManagementController::class, 'index']);
     Route::delete('/products/{id}', [ProductManagementController::class, 'destroy']);
 
-    // Orders
+    // Order Management
     Route::get('/orders', [OrderManagementController::class, 'index']);
-    Route::get('/orders/{id}', [OrderManagementController::class, 'show']);
+    Route::get('/orders/{id}', [OrderManagementController::class, 'show']); // Important: detail view
+    Route::put('/orders/{id}', [OrderManagementController::class, 'update']);
+    Route::delete('/orders/{id}', [OrderManagementController::class, 'destroy']);
 
+    
     // Feedback
     Route::get('/feedback', [FeedbackManagementController::class, 'index']);
     Route::delete('/feedback/{id}', [FeedbackManagementController::class, 'destroy']);
@@ -161,17 +164,20 @@ Route::middleware(['auth:sanctum', 'isAdmin'])->prefix('admin')->group(function 
 });
 
 
-
-
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/conversations', [ConversationController::class, 'index']);
     Route::get('/conversations/{conversationId}/messages', [ConversationController::class, 'messages']);
+    
+    // ✅ Change this line:
     Route::post('/conversations/{conversationId}/messages', [ConversationController::class, 'sendMessage']);
-    Route::post('/conversations/{conversationId}/read', [ConversationController::class, 'markAsRead']);
+    
     Route::post('/conversations/start', [ConversationController::class, 'startChat']);
+    Route::post('/conversations/{conversationId}/read', [ConversationController::class, 'markAsRead']);
+    
 });
 
-
+// Get or create conversation with a specific farmer
+Route::middleware('auth:sanctum')->get('/conversations/with/{farmerId}', [ConversationController::class, 'getByFarmer']);
 
 Route::middleware('auth:sanctum')->post('/feedback', [FeedbackController::class, 'store']);
 

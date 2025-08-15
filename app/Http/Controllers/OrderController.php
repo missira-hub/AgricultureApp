@@ -67,63 +67,44 @@ class OrderController extends Controller
     /**
      * Checkout all items in cart
      */
-    public function checkout(Request $request)
-    {
-        $user = $request->user();
 
-        if ($user->role !== 'consumer') {
-            return response()->json(['message' => 'Only consumers can checkout'], 403);
-        }
+public function checkout(Request $request)
+{
+    $user = $request->user();
+    $cartItems = Cart::with('product')->where('user_id', $user->id)->get();
 
-        $cartItems = Cart::with('product')->where('user_id', $user->id)->get();
+    $total = $cartItems->sum(fn($item) => $item->product->price * $item->quantity);
 
-        if ($cartItems->isEmpty()) {
-            return response()->json(['message' => 'Cart is empty'], 400);
-        }
+    DB::beginTransaction();
+    try {
+        $order = Order::create([
+            'user_id'     => $user->id,
+            'total_price' => $total,
+            'status'      => 'paid', // ✅ or 'pending' — both are fine
+        ]);
 
-        $total = $cartItems->sum(fn($item) => $item->product->price * $item->quantity);
-
-        DB::beginTransaction();
-        try {
-            $order = Order::create([
-                'user_id'     => $user->id,
-                'total_price' => $total,
-                'status'      => 'pending',
+        foreach ($cartItems as $item) {
+            OrderItem::create([
+                'order_id'   => $order->id,
+                'product_id' => $item->product_id,
+                'quantity'   => $item->quantity,
+                'price'      => $item->product->price,
             ]);
-
-            foreach ($cartItems as $item) {
-                if ($item->product->quantity < $item->quantity) {
-                    throw new \Exception("Not enough stock for {$item->product->name}");
-                }
-
-                OrderItem::create([
-                    'order_id'   => $order->id,
-                    'product_id' => $item->product_id,
-                    'quantity'   => $item->quantity,
-                    'price'      => $item->product->price,
-                ]);
-
-                $item->product->decrement('quantity', $item->quantity);
-            }
-
-            Cart::where('user_id', $user->id)->delete();
-
-            DB::commit();
-
-            return response()->json([
-                'message'  => 'Checkout successful',
-                'order_id' => $order->id,
-                'total'    => $total,
-            ]);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json([
-                'error'   => 'Checkout failed',
-                'details' => $e->getMessage(),
-            ], 500);
         }
+
+        Cart::where('user_id', $user->id)->delete();
+
+        DB::commit();
+
+        return response()->json([
+            'message'  => 'Checkout successful',
+            'order_id' => $order->id,
+        ]);
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return response()->json(['error' => $e->getMessage()], 500);
     }
-
+}
     /**
      * Get authenticated user's orders
      */
@@ -195,34 +176,42 @@ class OrderController extends Controller
         }
     }
     
+/**
+ * Farmer sales history: only show orders that are "paid"
+ */
 public function salesHistory()
 {
-    $user = Auth::user();
+    $user = auth()->user();
 
-    // Ensure the user is a farmer
     if ($user->role !== 'farmer') {
         return response()->json(['error' => 'Unauthorized'], 403);
     }
 
-    // Get all order items where the product belongs to the farmer
-    $sales = OrderItem::with(['product', 'order'])
+    $sales = OrderItem::with(['product', 'order' => function ($query) {
+            $query->where('status', 'paid'); // 🔐 Only paid orders
+        }])
         ->whereHas('product', function ($query) use ($user) {
             $query->where('user_id', $user->id);
+        })
+        ->whereHas('order', function ($query) {
+            $query->where('status', 'paid'); // Ensure only paid orders
         })
         ->orderByDesc('created_at')
         ->get()
         ->map(function ($item) {
             return [
                 'order_id'     => $item->order->id,
-                'product_name' => $item->product->name ?? 'Unknown',
+                'product_name' => $item->product->name ?? 'Unknown Product',
                 'quantity'     => $item->quantity,
-                'total_price'  => $item->quantity * $item->price,
+                'total_price'  => round($item->quantity * $item->price, 2),
                 'created_at'   => $item->created_at->format('Y-m-d H:i'),
             ];
         });
 
     return response()->json($sales);
 }
+
+
 public function destroy($id)
 {
     $order = Order::with('items')->find($id);
