@@ -8,33 +8,27 @@ use App\Models\User;
 class UserManagementController extends Controller
 {
     private function authorizeAdmin()
-{
-    if (auth()->user()->role !== 'admin') {
-        abort(403, 'Unauthorized. Admin access only.');
+    {
+        if (auth()->user()->role !== 'admin') {
+            abort(403, 'Unauthorized. Admin access only.');
+        }
     }
-}
 
-  public function index()
-{
-    $this->authorizeAdmin();
-
-    try {
-        // Make sure these fields exist in your users table
-        $users = User::select('id', 'name', 'email', 'role')->get();
-
-        return response()->json($users, 200);
-    } catch (\Exception $e) {
-        \Log::error('Error fetching users in UserManagementController@index: ' . $e->getMessage());
-        return response()->json(['error' => 'Something went wrong while fetching users.'], 500);
+    public function index()
+    {
+        $this->authorizeAdmin();
+        try {
+            $users = User::select('id', 'name', 'email', 'role')->get();
+            return response()->json($users, 200);
+        } catch (\Exception $e) {
+            \Log::error('Error fetching users: ' . $e->getMessage());
+            return response()->json(['error' => 'Something went wrong.'], 500);
+        }
     }
-}
-
-
 
     public function upgradeToFarmer($id)
     {
         $this->authorizeAdmin();
-
         $user = User::findOrFail($id);
         $user->role = 'farmer';
         $user->save();
@@ -44,7 +38,6 @@ class UserManagementController extends Controller
     public function downgradeToConsumer($id)
     {
         $this->authorizeAdmin();
-
         $user = User::findOrFail($id);
         $user->role = 'consumer';
         $user->save();
@@ -54,7 +47,6 @@ class UserManagementController extends Controller
     public function destroy($id)
     {
         $this->authorizeAdmin();
-
         $user = User::findOrFail($id);
         $user->delete();
         return response()->json(['message' => 'User deleted']);

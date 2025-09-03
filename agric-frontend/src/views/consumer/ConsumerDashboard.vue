@@ -100,6 +100,8 @@
     <div class="spinner"></div>
     <p>Loading...</p>
   </div>
+
+
 <!-- MESSAGES SECTION -->
 <section v-if="section === 'messages'" class="messaging-section">
   <div class="messaging-container">
@@ -139,9 +141,9 @@
           :class="['conversation-item', { active: currentConversation?.id === conv.id }]"
         >
           <div class="conversation-info">
-            <!-- Avatar -->
+            <!-- Avatar: Get the other participant -->
             <img
-              :src="conv.avatarUrl || '/default-avatar.png'"
+              :src="getConversationAvatar(conv)"
               alt="Avatar"
               class="conversation-avatar"
             />
@@ -149,9 +151,13 @@
             <div class="conversation-details">
               <div class="conversation-header-row">
                 <strong class="conversation-title">{{ getConversationTitle(conv) }}</strong>
-                <span class="timestamp">{{ conv.lastMessageCreatedAt ? formatTime(conv.lastMessageCreatedAt) : '' }}</span>
+                <span class="timestamp">
+                  {{ conv.last_message?.created_at ? formatTime(conv.last_message.created_at) : '' }}
+                </span>
               </div>
-              <p class="last-message">{{ getLastMessagePreview(conv) }}</p>
+              <p class="last-message">
+                {{ getLastMessagePreview(conv) }}
+              </p>
             </div>
 
             <!-- Unread Badge -->
@@ -180,14 +186,14 @@
         <div class="chat-header">
           <div class="header-left">
             <img
-              :src="currentConversation.avatarUrl || '/default-avatar.png'"
+              :src="getConversationAvatar(currentConversation)"
               alt="Contact"
               class="header-avatar"
             />
             <div class="header-info">
               <h4>{{ getConversationTitle(currentConversation) }}</h4>
-              <p v-if="currentConversation.isOnline" class="status">Online</p>
-              <p v-else class="status">Last seen {{ formatTime(currentConversation.lastSeen) }}</p>
+              <p v-if="isContactOnline" class="status">Online</p>
+              <p v-else class="status">Last seen {{ formatTime(lastSeenTime) }}</p>
             </div>
           </div>
           <div class="header-actions">
@@ -228,57 +234,50 @@
             <small>Start the conversation</small>
           </div>
 
-          <!-- Message List -->
-          <div v-else-if="!loadingMessages" class="messages-list">
-            <div
-              v-for="message in currentConversation.messages"
-              :key="message.id"
-              class="message-wrapper"
-              :class="{ 'sent': message.sender_id === userId, 'received': message.sender_id !== userId }"
-            >
-              <!-- RECEIVED MESSAGE (from other person) -->
-              <div v-if="message.sender_id !== userId" class="received-message">
-                <!-- Show avatar only if this is the first message or sender changed -->
-                <img
-                  v-if="showSenderInfo(message)"
-                  :src="message.sender_avatar_url || '/default-avatar.png'"
-                  alt="Sender"
-                  class="sender-avatar"
-                />
-                <div class="message-content">
-                  <div class="message-bubble received">
-                    <p>{{ message.message }}</p>
-                    <div class="message-meta">
-                      <span class="timestamp">{{ formatTime(message.created_at) }}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- SENT MESSAGE (by you) -->
-              <div v-else class="sent-message">
-                <div class="message-content">
-                  <div class="message-bubble sent">
-                    <p>{{ message.message }}</p>
-                    <div class="message-meta">
-                      <span class="timestamp">{{ formatTime(message.created_at) }}</span>
-                      <span class="message-status">
-                        <svg v-if="message.status === 'pending'" class="status-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                          <path d="M16 8v8l-8-4 8-4z"/>
-                        </svg>
-                        <svg v-else-if="message.status === 'sent'" class="status-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                          <path d="M5 13l4 4L19 7"/>
-                        </svg>
-                        <svg v-else-if="message.status === 'delivered'" class="status-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                          <path d="M5 13l4 4L19 7" stroke-width="2"/>
-                        </svg>
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+        <!-- Message List -->
+  <div v-else-if="!loadingMessages" class="messages-list">
+    <!-- ✅ ADD v-for HERE with (message, index) -->
+    <div
+      v-for="(message, index) in currentConversation.messages"
+      :key="message.id"
+      class="message-wrapper"
+      :class="{
+        'sent': message.sender_id === userId.value,
+        'received': message.sender_id !== userId.value
+      }"
+    >
+      <!-- RECEIVED MESSAGE (from other person) -->
+      <div v-if="message.sender_id !== userId.value" class="received-message">
+        <!-- Show avatar only when sender changes -->
+        <img
+          v-if="shouldShowAvatar(currentConversation.messages, index)"
+          :src="message.sender_avatar || '/default-avatar.png'"
+          alt="Sender"
+          class="sender-avatar"
+        />
+        <div class="message-content">
+          <div class="message-bubble received">
+            {{ message.message }}
+            <div class="message-meta">
+              <span class="timestamp">{{ formatTime(message.created_at) }}</span>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- SENT MESSAGE (by you) -->
+      <div v-else class="sent-message">
+        <div class="message-content">
+          <div class="message-bubble sent">
+            {{ message.message }}
+            <div class="message-meta">
+              <span class="timestamp">{{ formatTime(message.created_at) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
           <!-- Initial Loading Spinner -->
           <div v-if="loadingMessages && !hasNoMessages" class="loading-state">
@@ -329,6 +328,7 @@
     </div>
   </div>
 </section>
+
 
   <section v-if="section === 'market' && !loading" class="card-section">
  <!-- SEARCH BAR -->
@@ -824,6 +824,10 @@ axios.defaults.baseURL = 'http://127.0.0.1:8000'
 const router = useRouter()
 const counter = ref(0)
 
+// ✅ Add these refs
+const isContactOnline = ref(false);
+const lastSeenTime = ref(null);
+
 
 const section = ref("market");      
 
@@ -846,7 +850,12 @@ const switchSection = async (target) => {
 
 const selectedFarmer = ref(null);
 
-
+const shouldShowAvatar = (messages, index) => {
+  if (index === 0) return true;
+  const prev = messages[index - 1];
+  const curr = messages[index];
+  return curr.sender_id !== prev.sender_id;
+};
 // ✅ Define the function
 const openChatWith = (farmerId) => {
   console.log('Opening chat with farmer:', farmerId);
@@ -889,7 +898,7 @@ const loadingConversations = ref(false)
 const loadingMessages = ref(false)
 
 // Assume you have userId from auth (replace with real value if available)
-const userId = ref(1) // Set dynamically from auth later
+const userId = ref(window.currentUserId || 1);
 
 // ✅ ADD: Ref for messages container to control scrolling
 const messagesContainer = ref(null)
@@ -1189,7 +1198,12 @@ watch(
     }
   }
 );
-
+// ✅ ADD: getConversationAvatar — This was missing!
+const getConversationAvatar = (conversation) => {
+  // Use `users` (from your Conversation model's relationship)
+  const otherUser = conversation.users?.find(u => u.id !== userId.value);
+  return otherUser?.avatar_url || '/default-avatar.png';
+};
 
 
 const paymentError = ref(null);
@@ -2077,7 +2091,7 @@ const goToProduct = (product) => {
 .greeting-center h2 {
   margin: 0;
   font-size: 1.6rem;
-  color: #375f9eff;
+  color: #38b883b8;
 }
 
 .greeting-center p {
@@ -2105,7 +2119,7 @@ const goToProduct = (product) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #375f9eff;
+  background: #4e8c4da2;
   color: white;
   font-weight: bold;
   font-size: 1.5rem;
@@ -2165,19 +2179,19 @@ const goToProduct = (product) => {
             border-radius: 12px;
             cursor: pointer;
             transition: all 0.2s ease;
-            color: #64748b;
+            color: #1011107e;
             position: relative;
         }
 
         .nav-item.active {
-            color: #375f9eff;
-            background: rgba(59, 130, 246, 0.1);
+            color: #101010ff;
+            background: rgba(9, 186, 9, 0.35);
             transform: translateY(-2px);
         }
 
         .nav-item:hover {
             transform: translateY(-2px);
-            color: #375f9eff;
+            color: #0ed64aac;
         }
 
         .nav-item svg, .nav-item span {
@@ -2201,7 +2215,7 @@ const goToProduct = (product) => {
         }
 
         .search-input-wrapper {
-            background: #ffffff;
+            background: #ffffffff;
             border: 1px solid #e2e8f0;
             border-radius: 12px;
             padding: 1rem 1.5rem;
@@ -2212,8 +2226,8 @@ const goToProduct = (product) => {
         }
 
         .search-input-wrapper:focus-within {
-            border-color: #375f9eff;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+            border-color: #4e97366b;
+            box-shadow: 0 0 0 3px rgba(8, 8, 8, 0.77);
         }
 
         .search-input-wrapper input {
@@ -2223,15 +2237,15 @@ const goToProduct = (product) => {
             font-size: 1rem;
             margin-left: 1rem;
             outline: none;
-            color: #1e293b;
+            color: #54c269ff;
         }
 
         .search-input-wrapper input::placeholder {
-            color: #375f9eff;
+            color: #30b3786f;
         }
 
         .search-icon {
-            color: #375f9eff;
+            color: #59cc8f74;
         }
 
         /* Filter Controls */
@@ -2248,7 +2262,7 @@ const goToProduct = (product) => {
             border: 1px solid #e2e8f0;
             border-radius: 8px;
             background: #ffffff;
-            color: #64748b;
+            color: #000000ff;
             cursor: pointer;
             transition: all 0.2s ease;
             font-weight: 500;
@@ -2257,11 +2271,11 @@ const goToProduct = (product) => {
 
         .filter-btn:hover,
         .filter-btn.active {
-            background: #375f9eff;
+            background: #0a996792;
             color: white;
-            border-color: #3b82f6;
+            border-color: #0eb08233;
             transform: translateY(-1px);
-            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+            box-shadow: 0 2px 8px rgba(6, 6, 6, 0);
         }
 
         .filter-btn span {

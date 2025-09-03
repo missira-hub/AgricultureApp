@@ -10,6 +10,7 @@ use App\Models\Feedback;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Illuminate\Http\Request; // ✅ Add this line
 
 class AdminController extends Controller
 {

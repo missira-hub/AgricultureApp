@@ -1,6 +1,5 @@
 <?php
 
-
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
@@ -22,7 +21,10 @@ class UnitSeeder extends Seeder
         ];
 
         foreach ($units as $unit) {
-            Unit::create($unit);
+            Unit::firstOrCreate(
+                ['abbreviation' => $unit['abbreviation']], // ← unique key
+                $unit // data to insert if not exists
+            );
         }
     }
 }

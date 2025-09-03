@@ -38,4 +38,13 @@ class Order extends Model
     return $this->hasMany(\App\Models\OrderItem::class);
 }
 
+public function customer()
+{
+    return $this->belongsTo(User::class, 'user_id');
+}
+
+public function address()
+{
+    return $this->hasOne(OrderAddress::class);
+}
 }

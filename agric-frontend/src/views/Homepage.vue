@@ -362,11 +362,12 @@ const scrollToSection = (id) => {
 .main-content {
   background-color: white;
   position: relative;
+  width:100%;
   z-index: 1;
+    font-weight: 600;
+
+
 }
-
-
-
 
 /* Nav styles inside the band */
 .nav-links {
@@ -402,24 +403,24 @@ const scrollToSection = (id) => {
   display: flex;
   justify-content: space-between; /* or flex-start depending on layout */
   align-items: center;
-  padding: 0 1rem;
+  padding: 0 2rem;
 }
 
 html, body {
-  margin: 0;
-  padding: 0;
+  margin: 0 !important;
+  padding: 0 !important;
   box-sizing: border-box;
 }
 #app {
   margin: 0;
-  padding: 0;
+  padding-left: 0px;
 }
 
 .homepage {
   color: grey;
   margin: 0;
-  padding: 0;
-  width: 100vw;
+  padding: 10 20;
+  width: 100%;
   min-height: 100vh;
   overflow-x: hidden;
 }
@@ -430,6 +431,7 @@ html, body {
   gap: 1rem;
   justify-content: center;
   font-weight: 600;
+  
 }
 
 .nav-links router-link {
@@ -445,6 +447,36 @@ html, body {
   background-color: #15803d;
   color: white;
 }
+
+.nav-links {
+  display: flex;
+  gap: 2.5rem;
+  font-weight: 1500;
+  font-size: 17px;
+  margin-left: auto;        /* PUSH nav-links as far right as possible */
+  font-family: 'Dancing Script', cursive;
+
+}
+
+.nav-links a {
+  color: white;
+  text-decoration: none;
+  transition: color 0.3s;
+  white-space: nowrap;
+    font-family: 'Dancing Script', cursive;
+
+}
+
+.nav-links a:hover {
+  color:rgb(7, 194, 7);
+}
+.auth-buttons {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-left: auto;
+}
+
 .logo {
   display: flex;
   align-items: center;
@@ -480,6 +512,8 @@ html, body {
   position: relative;
   display: flex;
   align-items: center;
+      font-family: 'Dancing Script', cursive;
+
 }
 
 .background-blur {
@@ -497,17 +531,22 @@ html, body {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  margin-left: -2rem; /* pushes it toward the right */
+
 }
 
 
 /* Contact Info */
 .top-contact {
   display: flex;
-  gap: 1.25rem;
+  gap: 1.5rem;
   flex-wrap: wrap;
   align-items: center;
   margin-left: auto; /* pushes it toward the right */
-  margin-right: 1rem; /* optional, adds spacing before login/register */
+  margin-right: -2rem; /* optional, adds spacing before login/register */
+      font-family: 'Dancing Script', cursive;
+      
+
 }
 
 
@@ -535,8 +574,8 @@ html, body {
 }
 body {
   background-color:rgba(247, 249, 247, 0.48); /* a soft off-white/gray-green color */
-  margin: 0;
-  padding: 0;
+  margin: 0 !important;
+  padding: 0 !important;
   box-sizing: border-box;
 }
 
@@ -601,13 +640,15 @@ body {
   color: white;
   display: inline-block;
   transition: background-color 0.3s ease;
-  background-color: rgb(223, 187, 9); /* Same yellow for all */
+  background-color: rgba(65, 231, 14, 1); /* Same yellow for all */
+    font-family: 'Dancing Script', cursive;
+
 }
 
 .discover-btn:hover,
 .login-btn:hover,
 .register-btn:hover {
-  background-color: rgb(223, 187, 9); /* Same yellow for all */
+  background-color: rgba(242, 242, 12, 1); /* Same yellow for all */
 }
 
 
@@ -637,7 +678,7 @@ body {
   background-image: url('@/assets/background-image.jpg');
   background-size: cover;
   background-position: center;
-  filter: contrast(135%) brightness(30%) saturate(95%);
+  filter: contrast(135%) brightness(60%) saturate(95%);
   z-index: -1;
   transform: scale(1);
 }
@@ -668,34 +709,6 @@ body {
   font-size: 1rem;
   color: #475569;
   padding-left: 0;
-}
-.nav-links {
-  display: flex;
-  gap: 2.5rem;
-  font-weight: 1500;
-  font-size: 17px;
-  margin-left: auto;        /* PUSH nav-links as far right as possible */
-  font-family: 'Dancing Script', cursive;
-
-}
-
-.nav-links a {
-  color: white;
-  text-decoration: none;
-  transition: color 0.3s;
-  white-space: nowrap;
-    font-family: 'Dancing Script', cursive;
-
-}
-
-.nav-links a:hover {
-  color:rgb(7, 194, 7);
-}
-.auth-buttons {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-  margin-left: auto;
 }
 
 .wave-bottom {
@@ -942,7 +955,7 @@ body {
   inset: 0;
   background-size: cover;
   background-position: center;
-  filter: contrast(175%) brightness(20%) saturate(95%);
+  filter: contrast(115%) brightness(70%) saturate(95%);
   transform: scale(1.05); /* Slight scale to avoid edge clipping */
   z-index: 0;
 }
@@ -1016,13 +1029,13 @@ body {
   border-radius: 12px;
   object-fit: cover;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-  filter: contrast(175%) brightness(20%) saturate(95%);
+  filter: contrast(135%) brightness(80%) saturate(95%);
 }
 
 .second-image {
   margin-top: 2rem;
   width: 80%;
-  filter: contrast(175%) brightness(20%) saturate(95%);
+  filter: contrast(115%) brightness(70%) saturate(95%);
 }
 
 
@@ -1392,7 +1405,6 @@ body {
   color: #4b5563; /* gray-600 */
   margin: 0;
 }
-
 
 
 </style>

@@ -11,6 +11,9 @@
             💬 Messages <span v-if="unreadCount > 0" class="badge">{{ unreadCount }}</span>
           </li>
           <li @click="switchSection('feedback')" :class="{ active: section === 'feedback' }">⭐ Feedback</li>
+          <li @click="switchSection('orders')" :class="{ active: section === 'orders' }">
+  📦 Orders
+</li>
           <li @click="switchSection('sales')" :class="{ active: section === 'sales' }">📦 Sales History</li>
           <li class="logout" @click="handleLogout">
             <span>🚪 Logout</span>
@@ -19,9 +22,9 @@
       </nav>
     </aside>
 
-    <!-- Main Content Area (Includes Header + Scrollable Content) -->
+    <!-- Main Content Area -->
     <div class="main-wrapper">
-      <!-- Dashboard Header (Fixed on top of main content) -->
+      <!-- Dashboard Header -->
       <header class="dashboard-header">
         <div class="greeting">
           <h2>👋 Hello, {{ currentUser?.name || 'Farmer' }}</h2>
@@ -95,14 +98,14 @@
           <div class="content-section">
             <h3 class="section-title">Recent Activity</h3>
             <div class="activity-list">
-              <div v-for="sale in sales.slice(0, 5)" :key="sale.id" class="activity-item">
-                <div class="activity-icon">💰</div>
-                <div class="activity-content">
-                  <p><strong>{{ sale.product_name }}</strong> sold</p>
-                  <span>{{ formatDate(sale.created_at) }}</span>
-                </div>
-                <div class="activity-value">₺{{ sale.total_price }}</div>
-              </div>
+            <div v-for="sale in sales.slice(0, 5)" :key="sale.id" class="activity-item">
+  <div class="activity-icon">💰</div>
+  <div class="activity-content">
+    <p><strong>{{ sale.product?.name }}</strong> × {{ sale.quantity }}</p>
+    <span>{{ formatDate(sale.created_at) }}</span>
+  </div>
+  <div class="activity-value">₺{{ sale.total_price }}</div>
+</div>
               <div v-if="sales.length === 0" class="empty-activity">
                 No recent activity
               </div>
@@ -114,7 +117,7 @@
         <section v-if="section === 'listings'" class="farmer-listings">
           <div class="header">
             <h2>🧺 My Product Listings</h2>
-            <button @click="showForm = !showForm" class="btn-primary">
+            <button @click="switchSection('listings'); showForm = !showForm;" class="btn-primary">
               {{ showForm ? (editMode ? 'Cancel Edit' : 'Cancel') : '➕ Add Product' }}
             </button>
           </div>
@@ -128,53 +131,98 @@
             </select>
           </div>
 
-          <!-- Form -->
+          <!-- Add/Edit Product Form -->
           <form v-if="showForm" @submit.prevent="submitProduct" enctype="multipart/form-data" class="form">
-            <div class="form-group">
-              <input v-model="newProduct.name" placeholder="Product Name" required />
-            </div>
-            <div class="form-group">
-              <textarea v-model="newProduct.description" placeholder="Description" required></textarea>
-            </div>
             <div class="form-row">
               <div class="form-group">
-                <input v-model.number="newProduct.price" type="number" min="0" step="0.01" placeholder="Price (₺)" required />
+                <label for="productName">Product Name</label>
+                <input
+                  id="productName"
+                  v-model="newProduct.name"
+                  type="text"
+                  placeholder="e.g. Organic Tomatoes"
+                  required
+                />
               </div>
               <div class="form-group">
-                <input v-model.number="newProduct.quantity" type="number" min="0" placeholder="Quantity" required />
+                <label for="productPrice">Price (₺)</label>
+                <input
+                  id="productPrice"
+                  v-model.number="newProduct.price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="e.g. 12.99"
+                  required
+                />
               </div>
             </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="productQuantity">Quantity in Stock</label>
+                <input
+                  id="productQuantity"
+                  v-model.number="newProduct.quantity"
+                  type="number"
+                  min="0"
+                  placeholder="e.g. 100"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label for="productUnit">Unit of Measure</label>
+                <select id="productUnit" v-model="newProduct.unit_id" required>
+                  <option value="">Select a unit</option>
+                  <option v-for="unit in units" :key="unit.id" :value="unit.id">
+                    {{ unit.name }} ({{ unit.abbreviation }})
+                  </option>
+                </select>
+              </div>
+            </div>
+
             <div class="form-group">
-              <label>Category:</label>
-              <select v-model="newProduct.category_id" required>
+              <label for="productCategory">Category</label>
+              <select id="productCategory" v-model="newProduct.category_id" required>
                 <option value="">Select a category</option>
                 <option v-for="category in categories" :key="category.id" :value="category.id">
                   {{ category.name }}
                 </option>
               </select>
             </div>
+
             <div class="form-group">
-              <label>Unit:</label>
-              <select v-model="newProduct.unit_id" required>
-                <option value="">Select a unit</option>
-                <option v-for="unit in units" :key="unit.id" :value="unit.id">
-                  {{ unit.name }} ({{ unit.abbreviation }})
-                </option>
-              </select>
+              <label for="productDescription">Description</label>
+              <textarea
+                id="productDescription"
+                v-model="newProduct.description"
+                rows="3"
+                placeholder="Describe your product: freshness, origin, packaging, etc."
+              ></textarea>
             </div>
+
             <div class="form-group">
-              <label>Product Image:</label>
-              <input type="file" @change="handleImageChange" accept="image/*" ref="fileInput" />
+              <label for="productImage">Product Image</label>
+              <input
+                id="productImage"
+                type="file"
+                @change="handleImageChange"
+                accept="image/*"
+                ref="fileInput"
+              />
               <div v-if="imagePreview" class="image-preview">
-                <img :src="imagePreview" alt="Preview" />
-                <button @click="imagePreview = null" type="button">Remove</button>
+                <img :src="imagePreview" alt="Image Preview" />
+                <button type="button" @click="removeImagePreview">Remove</button>
               </div>
             </div>
+
             <div class="form-actions">
               <button type="submit" class="btn-primary">
-                {{ editMode ? 'Update Product' : 'Save Product' }}
+                {{ editMode ? 'Update Product' : 'Add Product' }}
               </button>
-              <button v-if="editMode" @click="cancelEdit" type="button" class="btn-secondary">Cancel Edit</button>
+              <button v-if="editMode" type="button" @click="cancelEdit" class="btn-secondary">
+                Cancel Edit
+              </button>
             </div>
           </form>
 
@@ -216,322 +264,535 @@
           </div>
         </section>
 
-  <!-- MESSAGES SECTION -->
-       <section v-if="section === 'messages'" class="messaging-section">
-  <div class="messaging-container">
-    <!-- Conversations List (Left Sidebar) -->
-    <div class="conversation-list">
-      <div class="conversation-header">
-        <h3>Messages</h3>
-        <div class="search-conversations">
-          <input
-            v-model="conversationSearchQuery"
-            type="text"
-            placeholder="Search conversations..."
-            @input="searchConversations"
-          />
-        </div>
-      </div>
-
-      <!-- Loading State -->
-      <div v-if="loadingConversations" class="loading-state">
-        <p>Loading conversations...</p>
-      </div>
-
-      <!-- Empty State - No Conversations -->
-      <div v-else-if="filteredConversations.length === 0" class="empty-state">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-        </svg>
-        <p>No conversations found</p>
-      </div>
-
-      <!-- Conversations List -->
-      <ul v-else class="conversations-list">
-        <li
-          v-for="conv in filteredConversations"
-          :key="conv.id"
-          @click="selectConversation(conv)"
-          :class="['conversation-item', { active: currentConversation?.id === conv.id }]"
-        >
-          <div class="conversation-info">
-            <!-- Avatar -->
-            <img
-              :src="conv.avatarUrl || '/default-avatar.png'"
-              alt="Avatar"
-              class="conversation-avatar"
-            />
-
-            <div class="conversation-details">
-              <div class="conversation-header-row">
-                <strong class="conversation-title">{{ getConversationTitle(conv) }}</strong>
-                <span class="timestamp">{{ conv.lastMessageCreatedAt ? formatTime(conv.lastMessageCreatedAt) : '' }}</span>
+        <!-- MESSAGES SECTION -->
+        <section v-if="section === 'messages'" class="messaging-section">
+          <div class="messaging-container">
+            <!-- Conversations List (Left Sidebar) -->
+            <div class="conversation-list">
+              <div class="conversation-header">
+                <h3>Messages</h3>
+                <div class="search-conversations">
+                  <input
+                    v-model="conversationSearchQuery"
+                    type="text"
+                    placeholder="Search conversations..."
+                    @input="searchConversations"
+                  />
+                </div>
               </div>
-              <p class="last-message">{{ getLastMessagePreview(conv) }}</p>
+
+              <!-- Loading State -->
+              <div v-if="loadingConversations" class="loading-state">
+                <p>Loading conversations...</p>
+              </div>
+
+              <!-- Empty State - No Conversations -->
+              <div v-else-if="filteredConversations.length === 0" class="empty-state">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+                <p>No conversations found</p>
+              </div>
+
+              <!-- Conversations List -->
+              <ul v-else class="conversations-list">
+                <li
+                  v-for="conv in filteredConversations"
+                  :key="conv.id"
+                  @click="selectConversation(conv)"
+                  :class="['conversation-item', { active: currentConversation?.id === conv.id }]"
+                >
+                  <div class="conversation-info">
+                    <img
+                      :src="conv.avatarUrl || '/default-avatar.png'"
+                      alt="Avatar"
+                      class="conversation-avatar"
+                    />
+                    <div class="conversation-details">
+                      <div class="conversation-header-row">
+                        <strong class="conversation-title">{{ getConversationTitle(conv) }}</strong>
+                        <span class="timestamp">{{ conv.lastMessageCreatedAt ? formatTime(conv.lastMessageCreatedAt) : '' }}</span>
+                      </div>
+                      <p class="last-message">{{ getLastMessagePreview(conv) }}</p>
+                    </div>
+                    <div v-if="conv.unread_count > 0" class="unread-indicator">
+                      {{ conv.unread_count > 9 ? '9+' : conv.unread_count }}
+                    </div>
+                  </div>
+                </li>
+              </ul>
             </div>
 
-            <!-- Unread Badge -->
-            <div v-if="conv.unread_count > 0" class="unread-indicator">
-              {{ conv.unread_count > 9 ? '9+' : conv.unread_count }}
+            <!-- Chat Area (Right Side) -->
+            <div class="chat-area">
+              <!-- Placeholder: No Conversation Selected -->
+              <div v-if="!currentConversation" class="select-conversation">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+                <h3>Select a conversation</h3>
+                <p>Choose a conversation to start messaging</p>
+              </div>
+
+              <!-- Active Conversation View -->
+              <div v-else>
+                <!-- Chat Header -->
+                <div class="chat-header">
+                  <div class="header-left">
+                    <img
+                      :src="currentConversation.avatarUrl || '/default-avatar.png'"
+                      alt="Contact"
+                      class="header-avatar"
+                    />
+                    <div class="header-info">
+                      <h4>{{ getConversationTitle(currentConversation) }}</h4>
+                      <p v-if="currentConversation.isOnline" class="status">Online</p>
+                      <p v-else class="status">Last seen {{ formatTime(currentConversation.lastSeen) }}</p>
+                    </div>
+                  </div>
+                  <div class="header-actions">
+                    <button class="action-button">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                      </svg>
+                    </button>
+                    <button class="action-button">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <circle cx="12" cy="12" r="1"/>
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
+                        <path d="M12 6v6l4 2"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Messages Container -->
+                <div
+                  class="messages-container"
+                  ref="messagesContainer"
+                  @scroll.passive="handleScroll"
+                  style="overflow-y: auto; height: 60vh;"
+                >
+                  <!-- Loading More Messages -->
+                  <div v-if="loadingMoreMessages" class="loading-more-messages">
+                    <div class="loading-spinner"></div>
+                    <p>Loading older messages...</p>
+                  </div>
+
+                  <!-- No Messages Yet -->
+                  <div v-else-if="hasNoMessages" class="empty-state">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    <p>No messages yet</p>
+                    <small>Start the conversation</small>
+                  </div>
+
+                  <!-- Message List -->
+                  <div v-else-if="!loadingMessages" class="messages-list">
+                    <div
+                      v-for="message in currentConversation.messages"
+                      :key="message.id"
+                      class="message-wrapper"
+                      :class="{ 'sent': message.sender_id === userId, 'received': message.sender_id !== userId }"
+                    >
+                      <div v-if="message.sender_id !== userId" class="received-message">
+                        <img
+                          v-if="showSenderInfo(message)"
+                          :src="message.sender_avatar_url || '/default-avatar.png'"
+                          alt="Sender"
+                          class="sender-avatar"
+                        />
+                        <div class="message-content">
+                          <div class="message-bubble received">
+                            <p>{{ message.message }}</p>
+                            <div class="message-meta">
+                              <span class="timestamp">{{ formatTime(message.created_at) }}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div v-else class="sent-message">
+                        <div class="message-content">
+                          <div class="message-bubble sent">
+                            <p>{{ message.message }}</p>
+                            <div class="message-meta">
+                              <span class="timestamp">{{ formatTime(message.created_at) }}</span>
+                              <span class="message-status">
+                                <svg v-if="message.status === 'pending'" class="status-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                  <path d="M16 8v8l-8-4 8-4z"/>
+                                </svg>
+                                <svg v-else-if="message.status === 'sent'" class="status-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                  <path d="M5 13l4 4L19 7"/>
+                                </svg>
+                                <svg v-else-if="message.status === 'delivered'" class="status-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                  <path d="M5 13l4 4L19 7" stroke-width="2"/>
+                                </svg>
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Initial Loading Spinner -->
+                  <div v-if="loadingMessages && !hasNoMessages" class="loading-state">
+                    <p>Loading messages...</p>
+                  </div>
+                </div>
+
+                <!-- Message Input -->
+                <div class="message-input">
+                  <div class="input-actions">
+                    <button class="emoji-button">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
+                        <line x1="9" y1="9" x2="9.01" y2="9"/>
+                        <line x1="15" y1="9" x2="15.01" y2="9"/>
+                      </svg>
+                    </button>
+                    <button class="attachment-button">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.19 9.19a2 2 0 0 1-2.83-2.83l9.19-9.19"/>
+                      </svg>
+                    </button>
+                  </div>
+                  <div class="input-wrapper">
+                    <input
+                      v-model="newMessage"
+                      @keyup.enter="sendMessage"
+                      placeholder="Type a message..."
+                      @focus="markConversationAsRead"
+                    />
+                  </div>
+                  <button
+                    @click="sendMessage"
+                    :disabled="!newMessage.trim()"
+                    class="send-button"
+                    :class="{ active: newMessage.trim() }"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <line x1="22" y1="2" x2="11" y2="13"/>
+                      <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </li>
-      </ul>
-    </div>
+        </section>
 
-    <!-- Chat Area (Right Side) -->
-    <div class="chat-area">
-      <!-- Placeholder: No Conversation Selected -->
-      <div v-if="!currentConversation" class="select-conversation">
-        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-        </svg>
-        <h3>Select a conversation</h3>
-        <p>Choose a conversation to start messaging</p>
+<!-- Feedback Section - Beautiful Card View -->
+<section v-if="section === 'feedback'" class="content-section view-feedback">
+  <h2 class="section-title">
+    <span>⭐</span> Manage Feedback & Replies
+  </h2>
+
+  <!-- Feedback Cards -->
+  <div v-if="feedback.length" class="feedback-cards-grid">
+    <div v-for="item in feedback" :key="item.id" class="feedback-card">
+      <!-- Header: User & Product -->
+      <div class="card-header">
+        <div class="user-chip">
+          <div class="avatar">{{ (item.user?.name || 'U')[0].toUpperCase() }}</div>
+          <span>{{ item.user?.name || 'Unknown User' }}</span>
+        </div>
+        <div class="product-tag">
+          {{ item.product?.name || 'Unknown Product' }}
+        </div>
       </div>
 
-      <!-- Active Conversation View -->
-      <div v-else>
-        <!-- Chat Header -->
-        <div class="chat-header">
-          <div class="header-left">
-            <img
-              :src="currentConversation.avatarUrl || '/default-avatar.png'"
-              alt="Contact"
-              class="header-avatar"
-            />
-            <div class="header-info">
-              <h4>{{ getConversationTitle(currentConversation) }}</h4>
-              <p v-if="currentConversation.isOnline" class="status">Online</p>
-              <p v-else class="status">Last seen {{ formatTime(currentConversation.lastSeen) }}</p>
-            </div>
-          </div>
-          <div class="header-actions">
-            <button class="action-button">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-              </svg>
-            </button>
-            <button class="action-button">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <circle cx="12" cy="12" r="1"/>
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
-                <path d="M12 6v6l4 2"/>
-              </svg>
-            </button>
+      <!-- Body -->
+      <div class="card-body">
+        <!-- Rating -->
+        <div class="rating-stars">
+          <span v-for="star in 5" :key="star" :class="{ filled: star <= item.rating }">
+            ★
+          </span>
+          <small>Rated {{ item.rating }}/5</small>
+        </div>
+
+        <!-- Comment -->
+        <blockquote class="comment">
+          "{{ item.comment }}"
+        </blockquote>
+
+        <!-- Meta Info -->
+        <div class="meta-info">
+          <time>{{ new Date(item.created_at).toLocaleDateString('en-US', { 
+              year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' 
+            }) }}</time>
+          <div class="status-badge" :class="item.approved ? 'approved' : 'pending'">
+            {{ item.approved ? 'Approved' : 'Pending' }}
           </div>
         </div>
 
-        <!-- Messages Container -->
-        <div
-          class="messages-container"
-          ref="messagesContainer"
-          @scroll.passive="handleScroll"
-          style="overflow-y: auto; height: 60vh;"
-        >
-          <!-- Loading More Messages (top) -->
-          <div v-if="loadingMoreMessages" class="loading-more-messages">
-            <div class="loading-spinner"></div>
-            <p>Loading older messages...</p>
+        <!-- Reply Section -->
+        <div class="reply-section">
+          <div v-if="item.reply" class="reply-box">
+            <strong>✅ You replied:</strong>
+            <p class="reply-text">{{ item.reply }}</p>
           </div>
-
-          <!-- No Messages Yet -->
-          <div v-else-if="hasNoMessages" class="empty-state">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-            </svg>
-            <p>No messages yet</p>
-            <small>Start the conversation</small>
-          </div>
-
-          <!-- Message List -->
-          <div v-else-if="!loadingMessages" class="messages-list">
-            <div
-              v-for="message in currentConversation.messages"
-              :key="message.id"
-              class="message-wrapper"
-              :class="{ 'sent': message.sender_id === userId, 'received': message.sender_id !== userId }"
+          <div v-else class="reply-form">
+            <textarea
+              v-model="replies[item.id]"
+              placeholder="Type your thoughtful reply..."
+              rows="2"
+              maxlength="500"
+            ></textarea>
+            <button
+              @click="sendReply(item.id)"
+              :disabled="!replies[item.id] || sendingReply[item.id]"
+              class="btn primary"
             >
-              <!-- RECEIVED MESSAGE (from other person) -->
-              <div v-if="message.sender_id !== userId" class="received-message">
-                <!-- Show avatar only if this is the first message or sender changed -->
-                <img
-                  v-if="showSenderInfo(message)"
-                  :src="message.sender_avatar_url || '/default-avatar.png'"
-                  alt="Sender"
-                  class="sender-avatar"
-                />
-                <div class="message-content">
-                  <div class="message-bubble received">
-                    <p>{{ message.message }}</p>
-                    <div class="message-meta">
-                      <span class="timestamp">{{ formatTime(message.created_at) }}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- SENT MESSAGE (by you) -->
-              <div v-else class="sent-message">
-                <div class="message-content">
-                  <div class="message-bubble sent">
-                    <p>{{ message.message }}</p>
-                    <div class="message-meta">
-                      <span class="timestamp">{{ formatTime(message.created_at) }}</span>
-                      <span class="message-status">
-                        <svg v-if="message.status === 'pending'" class="status-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                          <path d="M16 8v8l-8-4 8-4z"/>
-                        </svg>
-                        <svg v-else-if="message.status === 'sent'" class="status-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                          <path d="M5 13l4 4L19 7"/>
-                        </svg>
-                        <svg v-else-if="message.status === 'delivered'" class="status-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                          <path d="M5 13l4 4L19 7" stroke-width="2"/>
-                        </svg>
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Initial Loading Spinner -->
-          <div v-if="loadingMessages && !hasNoMessages" class="loading-state">
-            <p>Loading messages...</p>
-          </div>
-        </div>
-
-        <!-- Message Input -->
-        <div class="message-input">
-          <div class="input-actions">
-            <button class="emoji-button">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <circle cx="12" cy="12" r="10"/>
-                <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
-                <line x1="9" y1="9" x2="9.01" y2="9"/>
-                <line x1="15" y1="9" x2="15.01" y2="9"/>
-              </svg>
-            </button>
-            <button class="attachment-button">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.19 9.19a2 2 0 0 1-2.83-2.83l9.19-9.19"/>
-              </svg>
+              {{ sendingReply[item.id] ? '📤 Sending...' : '📤 Reply' }}
             </button>
           </div>
-
-          <div class="input-wrapper">
-            <input
-              v-model="newMessage"
-              @keyup.enter="sendMessage"
-              placeholder="Type a message..."
-              @focus="markConversationAsRead"
-            />
-          </div>
-
-          <button
-            @click="sendMessage"
-            :disabled="!newMessage.trim()"
-            class="send-button"
-            :class="{ active: newMessage.trim() }"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <line x1="22" y1="2" x2="11" y2="13"/>
-              <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-            </svg>
-          </button>
         </div>
+      </div>
+
+      <!-- Card Footer / Actions -->
+      <div class="card-footer">
+        <button
+          v-if="!item.approved"
+          @click="approveFeedback(item.id)"
+          class="btn outline approve"
+        >
+          ✅ Approve
+        </button>
+        <button @click="deleteFeedback(item.id)" class="btn danger">
+          🗑 Delete
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- No Feedback -->
+  <div v-else class="empty-state">
+    <img src="https://img.icons8.com/ios-filled/100/cccccc/speech-bubble.png" alt="No feedback" class="empty-icon" />
+    <p>No feedback found. Come back later!</p>
+  </div>
+
+  <!-- Pagination -->
+  <div v-if="pagination.total > pagination.per_page" class="pagination-controls">
+    <button
+      class="btn pagination-btn"
+      :disabled="pagination.current_page === 1"
+      @click="changePage(pagination.current_page - 1)"
+    >
+      ← Prev
+    </button>
+    <span class="page-info">Page {{ pagination.current_page }} of {{ pagination.last_page }}</span>
+    <button
+      class="btn pagination-btn"
+      :disabled="pagination.current_page === pagination.last_page"
+      @click="changePage(pagination.current_page + 1)"
+    >
+      Next →
+    </button>
+  </div>
+</section>
+
+        <!-- Order Management Section -->
+<section v-if="section === 'orders'" class="content-section">
+  <h2>📦 Order Management</h2>
+
+  <div v-if="ordersLoading" class="loading">Loading orders...</div>
+
+  <div v-else-if="orders.length === 0" class="empty-state">
+    <p>No orders yet. Your products will appear here once a customer places an order.</p>
+  </div>
+
+  <div v-else class="orders-list">
+    <div v-for="order in orders" :key="order.id" class="order-card">
+      <!-- Order Header -->
+      <div class="order-header">
+        <div class="order-id">Order #{{ order.id }}</div>
+        <div class="order-status" :class="order.status || 'unknown'">
+          {{ formatStatus(order.status) }}
+        </div>
+      </div>
+
+      <!-- Customer Info -->
+      <div class="order-customer">
+        <strong>Customer:</strong> {{ order.customer_name }}<br />
+        <strong>Phone:</strong> {{ order.customer_phone || 'Not provided' }}<br />
+        <strong>Address:</strong> {{ order.shipping_address }}
+      </div>
+
+      <!-- Order Items -->
+      <div class="order-items">
+        <div v-for="item in order.items" :key="item.id" class="order-item">
+          <img
+            v-if="item.product?.image"
+            :src="`http://127.0.0.1:8000/storage/${item.product.image}`"
+            :alt="item.product.name"
+            class="item-image"
+            @error="useFallbackImage"
+          />
+          <div v-else class="item-image placeholder">🖼️</div>
+          <div class="item-details">
+            <h4>{{ item.product?.name || 'Unknown Product' }}</h4>
+            <p>
+              {{ item.quantity }} × ₺{{ item.price }}
+              <span v-if="item.product?.unit"> {{ item.product.unit.abbreviation }}</span>
+              = <strong>₺{{ (item.quantity * item.price).toFixed(2) }}</strong>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Order Summary -->
+      <div class="order-summary">
+        <div><strong>Total:</strong> ₺{{ order.total_price }}</div>
+        <div><strong>Date:</strong> {{ formatDate(order.created_at) }}</div>
+      </div>
+
+      <!-- Farmer Instructions -->
+      <div class="farmer-instructions">
+        <h4>📋 What You Should Do:</h4>
+        <ol>
+          <li v-if="order.status === 'pending'">
+            <strong>Wait for Payment</strong> – The customer has placed the order. Wait for status to change to <em>paid</em>.
+          </li>
+          <li v-if="order.status === 'paid'">
+            <strong>Prepare the Order</strong> – Pack the items. This order is confirmed and paid.
+          </li>
+          <li v-if="order.status === 'paid' || order.status === 'shipped'">
+            <strong>Delivery:</strong>
+            <template v-if="order.delivery_method === 'pickup'">
+              Customer will pick up from your farm.
+            </template>
+            <template v-else>
+              Deliver to: {{ order.shipping_address }}
+            </template>
+          </li>
+          <li v-if="order.status === 'shipped'">
+            <strong>🚚 Shipped</strong> – Marked as shipped on {{ formatDate(order.shipped_at) }}
+          </li>
+          <li v-if="order.status === 'delivered'">
+            <strong>✅ Delivered</strong> – Customer has received the order.
+          </li>
+          <li v-if="order.status === 'cancelled'">
+            <strong>🚫 Cancelled</strong> – Order was cancelled.
+          </li>
+          <li v-if="order.status === 'unknown'">
+            <strong>❓ Unknown Status</strong> – Contact support.
+          </li>
+        </ol>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="order-actions">
+        <button
+          v-if="order.status === 'paid'"
+          @click="markAsShipped(order.id)"
+          class="btn-primary"
+        >
+          Mark as Shipped
+        </button>
+        <button
+          v-if="order.status === 'shipped'"
+          @click="markAsDelivered(order.id)"
+          class="btn-success"
+        >
+          Mark as Delivered
+        </button>
+        <button @click="printOrder(order)" class="btn-secondary">
+          🖨️ Print Order
+        </button>
       </div>
     </div>
   </div>
 </section>
-        <!-- Feedback Section -->
-        <section v-if="section === 'feedback'" class="content-section view-feedback">
-          <h2>⭐ Manage Feedback & Reply</h2>
-          <table class="feedback-table" v-if="feedback.length">
-            <thead>
-              <tr>
-                <th>User</th>
-                <th>Product</th>
-                <th>Rating</th>
-                <th>Comment</th>
-                <th>Posted At</th>
-                <th>Approved</th>
-                <th>Reply</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="item in feedback" :key="item.id">
-                <td>{{ item.user?.name || 'Unknown' }}</td>
-                <td>{{ item.product?.name || 'Unknown' }}</td>
-                <td>{{ item.rating }} / 5</td>
-                <td>{{ item.comment }}</td>
-                <td>{{ new Date(item.created_at).toLocaleString() }}</td>
-                <td>
-                  <span v-if="item.approved">✅ Yes</span>
-                  <span v-else>❌ No</span>
-                </td>
-                <td>
-                  <div v-if="item.reply">
-                    <strong>Your reply:</strong> {{ item.reply }}
-                  </div>
-                  <div v-else>
-                    <textarea v-model="replies[item.id]" placeholder="Write your reply here" rows="2" cols="25"></textarea>
-                    <button @click="sendReply(item.id)" :disabled="!replies[item.id] || sendingReply[item.id]" class="btn-reply">
-                      {{ sendingReply[item.id] ? 'Sending...' : 'Reply' }}
-                    </button>
-                  </div>
-                </td>
-                <td>
-                  <button v-if="!item.approved" @click="approveFeedback(item.id)" class="btn-approve">✔ Approve</button>
-                  <button @click="deleteFeedback(item.id)" class="btn-delete">🗑 Delete</button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <p v-else>No feedback found.</p>
 
-          <!-- Pagination -->
-          <div class="pagination" v-if="pagination.total > pagination.per_page">
-            <button :disabled="pagination.current_page === 1" @click="changePage(pagination.current_page - 1)">Prev</button>
-            <span>Page {{ pagination.current_page }} / {{ pagination.last_page }}</span>
-            <button :disabled="pagination.current_page === pagination.last_page" @click="changePage(pagination.current_page + 1)">Next</button>
-          </div>
-        </section>
 
-        <!-- Sales History Section -->
-        <section v-if="section === 'sales'" class="content-section">
-          <h2>📦 Sales History</h2>
-          <div v-if="salesLoading" class="loading">Loading sales data...</div>
-          <div v-else-if="sales.length > 0" class="sales-grid">
-            <div v-for="sale in sales" :key="sale.id" class="sale-card">
-              <div class="sale-info">
-                <h3>{{ sale.product_name }}</h3>
-                <div class="sale-meta">
-                  <span>Order #{{ sale.order_id }}</span>
-                  <span>{{ formatDate(sale.created_at) }}</span>
-                </div>
-              </div>
-              <div class="sale-stats">
-                <div class="stat">
-                  <span class="label">Quantity</span>
-                  <span class="value">{{ sale.quantity }}</span>
-                </div>
-                <div class="stat">
-                  <span class="label">Total</span>
-                  <span class="value">{{ sale.total_price }} ₺</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div v-else class="empty-state">
-            <p>Nothing has been sold yet.</p>
-          </div>
-        </section>
+<!-- Sales History Section -->
+<section v-if="section === 'sales'" class="content-section">
+  <h2>📦 Sales History</h2>
+
+  <div v-if="salesLoading" class="loading">Loading sales data...</div>
+
+  <div v-else-if="sales.length > 0" class="sales-grid">
+    <div v-for="sale in sales" :key="sale.id" class="sale-card">
+      <!-- Product Image & Info -->
+      <div class="sale-header">
+        <img
+          v-if="sale.product?.image"
+          :src="`http://127.0.0.1:8000/storage/${sale.product.image}`"
+          :alt="sale.product.name"
+          class="sale-product-image"
+          @error="useFallbackImage"
+        />
+        <div v-else class="sale-product-image placeholder">🖼️</div>
+
+        <div class="sale-details">
+          <h3>{{ sale.product?.name || 'Unknown Product' }}</h3>
+          <p class="farmer">
+            <strong>Farmer:</strong> {{ sale.product?.user?.name || 'You' }}
+          </p>
+          <p class="category" v-if="sale.product?.category">
+            <strong>Category:</strong> {{ sale.product.category.name }}
+          </p>
+        </div>
+      </div>
+
+      <!-- Sales Stats -->
+      <div class="sale-stats">
+        <div class="stat">
+          <span class="label">Price</span>
+          <span class="value">₺{{ sale.unit_price }}</span>
+        </div>
+        <div class="stat">
+          <span class="label">Qty</span>
+          <span class="value">
+            {{ sale.quantity }}
+            <span v-if="sale.product?.unit"> {{ sale.product.unit.abbreviation }}</span>
+          </span>
+        </div>
+        <div class="stat">
+          <span class="label">Total</span>
+          <span class="value">₺{{ sale.total_price }}</span>
+        </div>
+      </div>
+
+      <!-- Order & Date -->
+      <div class="sale-meta">
+        <span>Order #{{ sale.order_id }}</span>
+        <span>{{ formatDate(sale.created_at) }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div v-else class="empty-state">
+    <p>Nothing has been sold yet.</p>
+  </div>
+</section>
+
+<!-- Inline Confirmation Box -->
+<div v-if="confirmBox.visible" class="confirm-overlay">
+  <div class="confirm-box">
+    <p>{{ confirmBox.message }}</p>
+    <div class="actions">
+      <button @click="confirmYes" class="btn-primary">Yes</button>
+      <button @click="confirmNo" class="btn-secondary">No</button>
+    </div>
+  </div>
+</div>
+
+<!-- Inline Status Message -->
+<div v-if="statusMessage.text" :class="['status-message', statusMessage.type]">
+  {{ statusMessage.text }}
+</div>
+
+
       </main>
     </div>
   </div>
+
+  
 </template>
 
 <script setup>
@@ -559,15 +820,56 @@ const switchSection = (newSection) => {
     fetchSales()
   } else if (newSection === 'listings') {
     fetchProducts()
+  } else if (newSection === 'orders') {
+    fetchOrders() // ✅ Refetch when tab is clicked
   }
 }
+  
+// Reactive state
+const confirmBox = reactive({
+  visible: false,
+  message: '',
+  action: null, // function to call on confirm
+})
+
+const statusMessage = reactive({
+  text: '',
+  type: '' // success or error
+})
+
+// Show confirmation box
+const showConfirm = (message, action) => {
+  confirmBox.visible = true
+  confirmBox.message = message
+  confirmBox.action = action
+}
+
+// Handle confirm
+const confirmYes = () => {
+  if (confirmBox.action) confirmBox.action()
+  confirmBox.visible = false
+}
+
+const confirmNo = () => {
+  confirmBox.visible = false
+}
+
+// Handle status messages
+const showStatus = (text, type = 'success') => {
+  statusMessage.text = text
+  statusMessage.type = type
+  setTimeout(() => {
+    statusMessage.text = ''
+  }, 3000)
+}
+
 
 
 const fetchProfile = async () => {
   try {
     const token = localStorage.getItem('token');
     if (!token) {
-      console.error('No token found');
+      showStatus('Authentication token not found. Please log in again.', 'error');
       return;
     }
 
@@ -587,13 +889,143 @@ const fetchProfile = async () => {
     userId.value = userData.id;
 
     console.log('Fetched user:', userData);
+    showStatus('Profile loaded successfully.');
   } catch (error) {
     console.error('Failed to fetch user profile:', error);
-    alert('Could not load your profile. Please log in again.');
+    showStatus('Could not load your profile. Please log in again.', 'error');
+
     localStorage.removeItem('token');
     window.location.href = '/login';
   }
 };
+
+
+// Orders
+const orders = ref([])
+const ordersLoading = ref(false)
+
+// Fetch Orders - Safe & Verified
+const fetchOrders = async () => {
+  ordersLoading.value = true;
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      showStatus('Authentication token not found. Please log in again.', 'error');
+      return;
+    }
+
+    const res = await axios.get('/api/farmer/orders', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    // Normalize: handle both [ ] and { [ ] }
+    const data = Array.isArray(res.data) ? res.data : res.data.data || [];
+
+    orders.value = data;
+    console.log('✅ Orders loaded:', orders.value);
+    showStatus('Orders loaded successfully.');
+  } catch (error) {
+    console.error('❌ Failed to fetch orders:', error);
+    orders.value = []; // ✅ Fallback to empty array
+    showStatus('Could not load orders. Please try again later.', 'error');
+  } finally {
+    ordersLoading.value = false;
+  }
+};
+
+// Helper: Safely format status (handles undefined/null)
+const formatStatus = (status) => {
+  if (!status) return 'Unknown'
+  return status.replace('_', ' ').replace('-', ' ').toUpperCase()
+}
+const markAsDelivered = async (orderId) => {
+  try {
+    await axios.post(
+      `/api/farmer/orders/${orderId}/status`,
+      { status: 'delivered' },
+      { headers: getAuthHeaders() }
+    )
+
+    showStatus('✅ Order marked as delivered.')
+    fetchOrders()
+  } catch (error) {
+    console.error('Failed to mark as delivered:', error)
+    showStatus(error.response?.data?.message || '❌ Failed to update status.', 'error')
+  }
+}
+
+
+// ✅ Updated markAsShipped without alert()
+const markAsShipped = async (orderId) => {
+  if (!confirm('Has the order been shipped?')) return
+
+  try {
+    await axios.post(`/api/farmer/orders/${orderId}/status`, {
+      status: 'shipped'
+    }, {
+      headers: getAuthHeaders()
+    })
+
+    message.value = 'Order marked as shipped.'
+    fetchOrders()
+
+    // auto-clear message after 3 seconds
+    setTimeout(() => {
+      message.value = ''
+    }, 3000)
+  } catch (error) {
+    console.error('Failed to mark as shipped:', error)
+    message.value = 'Failed to mark as shipped.'
+    setTimeout(() => {
+      message.value = ''
+    }, 3000)
+  }
+}
+
+
+// Print Order
+const printOrder = (order) => {
+  const printWindow = window.open('', '_blank')
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>Order #${order.id}</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; }
+          .header { text-align: center; border-bottom: 2px solid #10b981; padding-bottom: 10px; }
+          .item { display: flex; gap: 10px; margin: 10px 0; }
+          .item img { width: 50px; height: 50px; object-fit: cover; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h2>FASI-MARKET – Order #${order.id}</h2>
+          <p>Date: ${formatDate(order.created_at)}</p>
+        </div>
+        <h3>Customer: ${order.customer_name}</h3>
+        <p>Phone: ${order.customer_phone || 'N/A'}</p>
+        <p>Address: ${order.shipping_address}</p>
+        <h3>Items:</h3>
+        <ul>
+          ${order.items.map(item => `
+            <li class="item">
+              <img src="http://127.0.0.1:8000/storage/${item.product.image}" />
+              <div>
+                <strong>${item.product.name}</strong><br/>
+                ${item.quantity} × ₺${item.price} = ₺${(item.quantity * item.price).toFixed(2)}
+              </div>
+            </li>
+          `).join('')}
+        </ul>
+        <h3>Total: ₺${order.total_price}</h3>
+        <p>Status: ${order.status.toUpperCase()}</p>
+      </body>
+    </html>
+  `)
+  printWindow.document.close()
+  printWindow.print()
+}
+
 
 // Profile modal
 const profileModalOpen = ref(false)
@@ -666,15 +1098,25 @@ const fetchCategories = async () => {
   }
 }
 
+const unitsFetched = ref(false)
+
 const fetchUnits = async () => {
+  if (unitsFetched.value) {
+    console.log('Units already fetched. Skipping.')
+    return
+  }
+
   try {
     const res = await axios.get('/api/units')
-    units.value = res.data
+    if (Array.isArray(res.data)) {
+units.value = res.data
+      unitsFetched.value = true
+      console.log('Units loaded:', units.value)
+    }
   } catch (err) {
     console.error('Failed to fetch units:', err)
   }
 }
-
 // Product form handlers
 const handleImageChange = (event) => {
   const file = event.target.files[0]
@@ -1266,19 +1708,19 @@ const approveFeedback = async (id) => {
     alert('Failed to approve feedback.')
   }
 }
-
-const deleteFeedback = async (id) => {
-  if (!confirm('Are you sure you want to delete this feedback?')) return
-  try {
-    await axios.delete(`/api/reviews/${id}`, {
-      headers: getAuthHeaders()
-    })
-    alert('Feedback deleted successfully.')
-    fetchFeedback(pagination.value.current_page)
-  } catch (err) {
-    console.error('Failed to delete feedback:', err)
-    alert('Failed to delete feedback.')
-  }
+const deleteFeedback = (id) => {
+  showConfirm('Are you sure you want to delete this feedback?', async () => {
+    try {
+      await axios.delete(`/api/reviews/${id}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      })
+      showStatus('Feedback deleted.')
+      fetchFeedback(pagination.value.current_page)
+    } catch (err) {
+      console.error('Failed to delete feedback:', err)
+      showStatus('Could not delete feedback.', 'error')
+    }
+  })
 }
 
 const changePage = (page) => {
@@ -1321,6 +1763,13 @@ const getAuthHeaders = () => {
   }
 }
 
+// === NEW: Inline Notification System (No alerts/confirm) ===
+const notification = ref({ show: false, message: '', type: 'info' });
+const showNotification = (message, type = 'info') => {
+  notification.value = { show: true, message, type };
+  setTimeout(() => { notification.value.show = false; }, 5000);
+};
+
 // Initialize data
 onMounted(async () => {
   try {
@@ -1330,6 +1779,8 @@ onMounted(async () => {
     await fetchUnits();
     await fetchFeedback();
     await fetchSales();
+    await fetchOrders() // ✅ Add this
+
   } catch (err) {
     console.error('Error during initialization:', err);
   }
@@ -1547,13 +1998,14 @@ onMounted(async () => {
   color: white;
   font-size: 1.3rem;
   font-weight: 600;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.5rem; 
 }
 
 .quick-actions {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1rem;
+  
 }
 
 .action-btn {
@@ -2000,7 +2452,110 @@ onMounted(async () => {
   opacity: 0.5;
   cursor: not-allowed;
 }
+/* === Sales History === */
+.sales-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+}
 
+.sale-card {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.sale-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.sale-header {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  align-items: flex-start;
+}
+
+.sale-product-image {
+  width: 70px;
+  height: 70px;
+  border-radius: 12px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 1.2rem;
+}
+
+.sale-details h3 {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.1rem;
+  color: white;
+}
+
+.sale-details p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.sale-details p.farmer {
+  color: #a8f7c5;
+}
+
+.sale-details p.category {
+  color: #a0d8f1;
+  font-size: 0.85rem;
+}
+
+.sale-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.stat .label {
+  display: block;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 0.25rem;
+}
+
+.stat .value {
+  font-weight: 700;
+  color: #10b981;
+  font-size: 1rem;
+}
+
+.sale-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.6);
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 1rem;
+}
+
+.empty-state {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.6);
+  padding: 3rem;
+  font-style: italic;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+}
 .sales-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -2529,4 +3084,528 @@ onMounted(async () => {
     padding: 0.5rem;
   }
 }
+/* === Form Improvements === */
+.form {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2rem;
+  border-radius: 15px;
+  margin-bottom: 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-group label {
+  display: block;
+  color: rgba(11, 11, 11, 0.9);
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 1);
+  color: rgba(14, 14, 14, 1);
+  font-size: 1rem;
+  transition: all 0.3s ease;
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #10b981;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.image-preview {
+  margin-top: 1rem;
+}
+
+.image-preview img {
+  max-width: 200px;
+  max-height: 200px;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+.image-preview button {
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+}
+/* === Orders Section === */
+.orders-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.order-card {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+}
+
+.order-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
+
+.order-id {
+  color: white;
+  font-size: 1.1rem;
+}
+
+.order-status {
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.order-status.pending { background: #f59e0b; color: white; }
+.order-status.paid { background: #10b981; color: white; }
+.order-status.shipped { background: #0ea5e9; color: white; }
+.order-status.delivered { background: #16a34a; color: white; }
+.order-status.cancelled { background: #ef4444; color: white; }
+
+.order-customer {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 1rem;
+  border-radius: 12px;
+  margin-bottom: 1rem;
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.order-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.order-item {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.item-image {
+  width: 60px;
+  height: 60px;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+.item-details h4 {
+  margin: 0 0 0.25rem 0;
+  color: white;
+  font-size: 1rem;
+}
+
+.item-details p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.9rem;
+}
+
+.order-summary {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: rgba(16, 185, 129, 0.1);
+  border-radius: 12px;
+  font-size: 0.95rem;
+  color: white;
+}
+
+.farmer-instructions {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 1rem;
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.farmer-instructions h4 {
+  margin: 0 0 0.75rem 0;
+  color: #10b981;
+}
+
+.farmer-instructions ol {
+  margin: 0.5rem 0;
+  padding-left: 1.5rem;
+}
+
+.order-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.btn-success {
+  background: linear-gradient(135deg, #16a34a, #15803d);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.btn-success:hover {
+  background: #145f2f;
+}
+
+/* Section Title */
+.section-title {
+  font-size: 1.75rem;
+  color: #2c3e50;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+}
+
+.section-title span {
+  font-size: 1.5em;
+}
+
+/* Grid Layout */
+.feedback-cards-grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  margin-top: 16px;
+}
+
+/* Feedback Card */
+.feedback-card {
+  background: rgba(46, 50, 77, 0.76);
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border: 1px solid #eaeaea;
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.feedback-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+}
+
+/* Card Header */
+.card-header {
+  padding: 16px 20px;
+  background: #3a3f5dff;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.user-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: #f6f6f7ff;
+  font-size: 14px;
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  background: #3498db;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.product-tag {
+  background: #f7f6f6ff;
+  color: #303c6aff;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* Card Body */
+.card-body {
+  padding: 20px;
+  color: #444;
+  line-height: 1.6;
+}
+
+/* Rating */
+.rating-stars {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 18px;
+  margin-bottom: 10px;
+}
+
+.rating-stars .filled {
+  color: #ffc107;
+}
+
+.rating-stars small {
+  color: #c3d013ff;
+  margin-left: 8px;
+  font-size: 12px;
+}
+
+/* Comment */
+.comment {
+  font-style: italic;
+  color: #0c0c0cff;
+  margin: 12px 0;
+  padding: 14px;
+  background: #f1f5f9;
+  border-left: 3px solid #3498db;
+  border-radius: 6px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Meta Info */
+.meta-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: #fefbfbff;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.status-badge {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-badge.approved {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status-badge.pending {
+  background: #fff8e1;
+  color: #9c6b00;
+}
+
+/* Reply Section */
+.reply-section {
+  margin: 16px 0;
+}
+
+.reply-box {
+  background: #e8f5e8;
+  border: 1px solid #c8e6c9;
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  color: #10abdeff;
+}
+
+.reply-text {
+  margin: 6px 0 0;
+  font-style: italic;
+}
+
+.reply-form textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  resize: vertical;
+  font-family: inherit;
+  font-size: 14px;
+  margin-bottom: 8px;
+  background: #fafafa;
+}
+
+.reply-form textarea:focus {
+  outline: none;
+  border-color: #3498db;
+  background: white;
+}
+
+/* Buttons */
+.btn {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn.primary {
+  background: #3498db;
+  color: white;
+}
+
+.btn.primary:hover:not(:disabled) {
+  background: #2980b9;
+}
+
+.btn.outline.approve {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #a5d6a7;
+}
+
+.btn.outline.approve:hover {
+  background: #c8e6c9;
+}
+
+.btn.danger {
+  background: #e53935;
+  color: white;
+}
+
+.btn.danger:hover {
+  background: #c62828;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Card Footer */
+.card-footer {
+  padding: 0 20px 20px;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #aaa;
+  font-size: 16px;
+}
+
+.empty-icon {
+  opacity: 0.3;
+  margin-bottom: 12px;
+  max-width: 80px;
+}
+
+/* Pagination */
+.pagination-controls {
+  margin-top: 30px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  font-size: 14px;
+  color: #555;
+}
+
+.pagination-controls .page-info {
+  font-weight: 500;
+}
+
+.pagination-controls .btn.pagination-btn {
+  background: #f1f1f1;
+  color: #333;
+}
+
+.pagination-controls .btn.pagination-btn:hover:not(:disabled) {
+  background: #e0e0e0;
+}
+
+.confirm-overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+}
+.confirm-box {
+  background: #fff;
+  padding: 20px;
+  border-radius: 10px;
+  text-align: center;
+  max-width: 400px;
+  width: 90%;
+}
+.confirm-box .actions {
+  margin-top: 15px;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+.status-message {
+  position: fixed;
+  bottom: 20px; right: 20px;
+  padding: 10px 15px;
+  border-radius: 6px;
+  font-weight: bold;
+  z-index: 2001;
+}
+.status-message.success { background: #d4edda; color: #155724; }
+.status-message.error { background: #f8d7da; color: #721c24; }
+
 </style>

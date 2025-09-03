@@ -71,38 +71,71 @@ class OrderController extends Controller
 public function checkout(Request $request)
 {
     $user = $request->user();
+
+    // Validate input
+    $request->validate([
+        'full_address' => 'required|string|max:500',
+        'city' => 'nullable|string|max:100',
+        'postal_code' => 'nullable|string|max:20',
+        'phone' => 'nullable|string|max:20',
+        'delivery_method' => 'required|in:delivery,pickup'
+    ]);
+
     $cartItems = Cart::with('product')->where('user_id', $user->id)->get();
 
+    if ($cartItems->isEmpty()) {
+        return response()->json(['error' => 'Your cart is empty'], 400);
+    }
+
+    // Calculate total
     $total = $cartItems->sum(fn($item) => $item->product->price * $item->quantity);
 
     DB::beginTransaction();
     try {
+        // Create order
         $order = Order::create([
-            'user_id'     => $user->id,
+            'user_id' => $user->id,
             'total_price' => $total,
-            'status'      => 'paid', // ✅ or 'pending' — both are fine
+            'status' => 'paid',
+            'delivery_method' => $request->delivery_method,
         ]);
 
+        // Add order items
         foreach ($cartItems as $item) {
             OrderItem::create([
-                'order_id'   => $order->id,
+                'order_id' => $order->id,
                 'product_id' => $item->product_id,
-                'quantity'   => $item->quantity,
-                'price'      => $item->product->price,
+                'quantity' => $item->quantity,
+                'price' => $item->product->price,
             ]);
         }
 
+        // Create shipping address
+        OrderAddress::create([
+            'order_id' => $order->id,
+            'full_address' => $request->full_address,
+            'city' => $request->city,
+            'postal_code' => $request->postal_code,
+            'phone' => $request->phone ?? $user->phone, // Fallback to user's phone
+        ]);
+
+        // Clear cart
         Cart::where('user_id', $user->id)->delete();
 
         DB::commit();
 
         return response()->json([
-            'message'  => 'Checkout successful',
+            'message' => 'Checkout successful',
             'order_id' => $order->id,
+            'total' => $total
         ]);
     } catch (\Exception $e) {
         DB::rollBack();
-        return response()->json(['error' => $e->getMessage()], 500);
+        \Log::error('Checkout failed: ' . $e->getMessage());
+        return response()->json([
+            'error' => 'Checkout failed. Please try again.',
+            'details' => $e->getMessage()
+        ], 500);
     }
 }
     /**
@@ -241,5 +274,25 @@ public function destroy($id)
     }
 }
 
+public function updateStatus(Request $request, $orderId)
+    {
+        $request->validate([
+            'status' => 'required|string'
+        ]);
 
+        $order = Order::findOrFail($orderId);
+        $order->status = $request->status;
+
+        // If marking delivered, also set shipped_at timestamp
+        if ($request->status === 'delivered') {
+            $order->shipped_at = now();
+        }
+
+        $order->save();
+
+        return response()->json([
+            'message' => 'Order status updated successfully',
+            'order'   => $order
+        ]);
+    }
 }

@@ -132,7 +132,7 @@ export default {
   height: 100vh;
   background: url('@/assets/hero.png') no-repeat center center;
   background-size: cover;
-  filter: blur(4px);
+  filter: blur(0px);
   transform: scale(1.05); /* Slightly scale up to avoid edges showing */
   z-index: -2;
 }

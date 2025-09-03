@@ -23,6 +23,7 @@ use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\StripeWebhookController;
 use App\Http\Controllers\Farmer\SalesController;
+use App\Http\Controllers\Farmer\FarmerOrderController;
 
 
 
@@ -61,6 +62,8 @@ Route::middleware('auth:sanctum')->prefix('admin')->group(function () {
     // User management
     Route::get('/users', [UserManagementController::class, 'index']);
     Route::put('/users/{id}/upgrade', [UserManagementController::class, 'upgradeToFarmer']);
+        Route::put('/users/{id}/downgrade', [UserManagementController::class, 'downgradeToConsumer']);
+
     Route::put('/users/{id}/block', [UserManagementController::class, 'blockUser']);
     Route::delete('/users/{id}', [UserManagementController::class, 'destroy']);
 
@@ -82,7 +85,17 @@ Route::middleware('auth:sanctum')->prefix('admin')->group(function () {
     Route::get('/feedback', [FeedbackManagementController::class, 'index']);
     Route::delete('/feedback/{id}', [FeedbackManagementController::class, 'destroy']);
 });
+// ------------------- Admin Notification Routes -------------------
+Route::middleware('auth:sanctum')->prefix('admin')->group(function () {
+    // Get unread notification count (for badge)
+    Route::get('/notifications/unread-count', [\App\Http\Controllers\Admin\NotificationController::class, 'unreadCount']);
 
+    // Get all notifications (for dropdown/list)
+    Route::get('/notifications', [\App\Http\Controllers\Admin\NotificationController::class, 'index']);
+
+    // Mark all notifications as read
+    Route::post('/notifications/mark-read', [\App\Http\Controllers\Admin\NotificationController::class, 'markAsRead']);
+});
 
 Route::middleware('auth:sanctum')->prefix('admin')->group(function () {
     Route::get('/products', [ProductManagementController::class, 'index']);
@@ -102,9 +115,21 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/farmer/orders', [OrderController::class, 'farmerProductOrders']);
 });
 
+Route::post('/farmer/orders/{order}/status', [OrderController::class, 'updateStatus']);
+
 Route::middleware('auth:sanctum')->get('/farmer/sales-history', [OrderController::class, 'salesHistory']);
+// In your farmer group
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/farmer/orders', [OrderController::class, 'farmerProductOrders']);
+    Route::post('/farmer/orders/{id}/ship', [OrderController::class, 'markAsShipped']);
+    Route::post('/farmer/orders/{id}/deliver', [OrderController::class, 'markAsDelivered']);
+});
 
-
+// ------------------- Farmer Routes -------------------
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/farmer/orders', [FarmerOrderController::class, 'index']);
+    Route::post('/farmer/orders/{id}/status', [FarmerOrderController::class, 'updateStatus']);
+});
 // ------------------- Consumer Routes -------------------
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/consumer/dashboard', fn() => response()->json(['message' => 'Welcome to Consumer Dashboard']));
@@ -163,6 +188,11 @@ Route::middleware(['auth:sanctum', 'isAdmin'])->prefix('admin')->group(function 
     Route::delete('/feedbacks/{id}', [FeedbackController::class, 'destroy']); // Admin can also delete
 });
 
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/conversations', [MessageController::class, 'index']);
+    Route::get('/conversations/{conversationId}/messages', [MessageController::class, 'show']);
+    Route::post('/messages', [MessageController::class, 'store']);
+});
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/conversations', [ConversationController::class, 'index']);
@@ -253,4 +283,5 @@ Route::get('/payment/verify', function (Request $request) {
             'error' => $e->getMessage()
         ], 500);
     }
+    
 });

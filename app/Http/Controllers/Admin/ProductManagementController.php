@@ -50,7 +50,7 @@ class ProductManagementController extends Controller
             // Add other product fields as needed
 
             // For image file upload (optional)
-            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:10000000000',
         ]);
 
         // If new image is uploaded, delete old one and store new
