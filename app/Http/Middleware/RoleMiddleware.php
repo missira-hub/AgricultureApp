@@ -8,22 +8,14 @@ use Illuminate\Support\Facades\Auth;
 
 class RoleMiddleware
 {
-    /**
-     * Handle an incoming request.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \Closure  $next
-     * @param  string  $role
-     * @return mixed
-     */
-    public function handle(Request $request, Closure $next, $role)
+    public function handle(Request $request, Closure $next, string $role)
     {
         if (!Auth::check()) {
-            return response()->json(['message' => 'Not authenticated'], 401);
+            return response()->json(['message' => 'Unauthorized'], 401);
         }
 
         if (Auth::user()->role !== $role) {
-            return response()->json(['message' => 'Unauthorized: Only ' . $role . ' can access this route.'], 403);
+            return response()->json(['message' => 'Forbidden: Role mismatch'], 403);
         }
 
         return $next($request);

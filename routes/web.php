@@ -25,3 +25,11 @@ Route::middleware('auth')->group(function () {
 });
 
 require __DIR__.'/auth.php';
+
+Route::get('/payment-success', function () {
+    return view('payment-success'); // simple blade or redirect to SPA root
+});
+
+Route::get('/payment-cancel', function () {
+    return view('payment-cancel');
+});

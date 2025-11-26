@@ -13,14 +13,17 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Optional: create 10 random users
-        // User::factory(10)->create();
-
-        // Create a default test user
+        $this->call([
+            UserSeeder::class,
+            UnitSeeder::class,
+            CategoriesTableSeeder::class,
+        ]);
+    
         User::factory()->create([
             'name' => 'Test User',
             'email' => 'test@example.com',
         ]);
+
 
         // Create admin user
         User::create([
@@ -46,4 +49,5 @@ class DatabaseSeeder extends Seeder
             'role' => 'consumer',
         ]);
     }
-}
+    }
+

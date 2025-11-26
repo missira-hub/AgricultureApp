@@ -9,18 +9,22 @@ return new class extends Migration
     /**
      * Run the migrations.
      */
-   public function up()
+  public function up()
 {
-    Schema::create('products', function (Blueprint $table) {
-        $table->id();
-        $table->foreignId('user_id')->constrained()->onDelete('cascade'); // farmer
-        $table->string('name');
-        $table->text('description');
-        $table->decimal('price', 8, 2);
-        $table->integer('quantity');
-        $table->timestamps();
-    });
+ Schema::create('products', function (Blueprint $table) {
+    $table->id();
+    $table->foreignId('user_id')->constrained()->onDelete('cascade');
+    $table->foreignId('category_id')->nullable()->constrained()->onDelete('set null');
+    $table->string('name');
+    $table->text('description');
+    $table->decimal('price', 8, 2);
+    $table->integer('quantity');
+    $table->timestamps();
+});
+
 }
+
+
 
     /**
      * Reverse the migrations.

@@ -1,75 +1,141 @@
 <?php
 
+
 namespace App\Http\Controllers;
 
 use App\Models\Cart;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class CartController extends Controller
 {
-    // List all cart items for the logged-in consumer
-    public function index(Request $request)
+    private function authorizeConsumer()
     {
-        $user = $request->user();
-
-        $cartItems = Cart::with('product')
-            ->where('user_id', $user->id)
-            ->get();
-
-        return response()->json($cartItems);
+        $user = Auth::user();
+        if (!$user || $user->role !== 'consumer') {
+            abort(403, 'Access denied. Only consumers can access the cart.');
+        }
     }
+
+    // List all cart items for the logged-in consumer
+  public function index(Request $request)
+{
+    $this->authorizeConsumer();
+
+    $user = $request->user();
+
+    $cartItems = Cart::with('product')
+        ->where('user_id', $user->id)
+        ->get();
+
+    $formattedCart = [];
+    $totalCartValue = 0;
+
+    foreach ($cartItems as $item) {
+        if (!$item->product) {
+            continue; // Skip if product doesn't exist
+        }
+
+        $lineTotal = $item->product->price * $item->quantity;
+        $totalCartValue += $lineTotal;
+
+        $formattedCart[] = [
+            'id' => $item->id,
+            'product_id' => $item->product->id,
+            'name' => $item->product->name,
+            'description' => $item->product->description,   // Add description
+            'quantity' => $item->quantity,
+            'unit_price' => $item->product->price,
+            'total_price' => $lineTotal,
+            'image' => $item->product->image,               // Add image path here
+        ];
+    }
+
+    return response()->json([
+        'message' => 'Cart items retrieved successfully',
+        'cart' => $formattedCart,
+        'total_cart_value' => $totalCartValue
+    ]);
+}
 
     // Add product to cart for logged-in consumer
     public function store(Request $request)
-    {
-        $request->validate([
-            'product_id' => 'required|exists:products,id',
-            'quantity' => 'required|integer|min:1',
-        ]);
+{
+    $this->authorizeConsumer();
 
-        $user = $request->user();
+    $request->validate([
+        'product_id' => 'required|integer',
+        'quantity' => 'required|integer|min:1',
+    ]);
 
-        // Check if the product is already in cart, update quantity if so
-        $cartItem = Cart::where('user_id', $user->id)
-            ->where('product_id', $request->product_id)
-            ->first();
+    $user = $request->user();
 
-        if ($cartItem) {
-            $cartItem->quantity += $request->quantity;
-            $cartItem->save();
-        } else {
-            $cartItem = Cart::create([
-                'user_id' => $user->id,
-                'product_id' => $request->product_id,
-                'quantity' => $request->quantity,
-            ]);
-        }
+    // Check if product exists and is not soft-deleted
+    $product = \App\Models\Product::where('id', $request->product_id)->first();
 
-        return response()->json($cartItem, 201);
+    if (!$product) {
+        return response()->json(['message' => 'Product not found or unavailable.'], 404);
     }
 
-    // Update quantity of a cart item, only if owned by user
-    public function update(Request $request, $id)
-    {
-        $request->validate([
-            'quantity' => 'required|integer|min:1',
-        ]);
+    // Optional: Check if requested quantity is available in stock
+    if ($request->quantity > $product->quantity) {
+        return response()->json(['message' => 'Not enough quantity available.'], 400);
+    }
 
-        $user = $request->user();
+    // Check if the product is already in the cart
+    $cartItem = Cart::where('user_id', $user->id)
+        ->where('product_id', $request->product_id)
+        ->first();
 
-        $cartItem = Cart::where('id', $id)
-            ->where('user_id', $user->id)
-            ->firstOrFail();
-
-        $cartItem->quantity = $request->quantity;
+    if ($cartItem) {
+        $cartItem->quantity += $request->quantity;
         $cartItem->save();
-
-        return response()->json($cartItem);
+    } else {
+        $cartItem = Cart::create([
+            'user_id' => $user->id,
+            'product_id' => $request->product_id,
+            'quantity' => $request->quantity,
+        ]);
     }
 
-    // Remove a cart item, only if owned by user
+    return response()->json([
+        'message' => 'Product added to cart successfully',
+        'cart_item' => $cartItem
+    ], 201);
+}
+
+    // Update quantity of a cart item
+    public function update(Request $request, $id)
+{
+    $request->validate([
+        'quantity' => 'required|integer|min:0',
+    ]);
+
+    $user = $request->user();
+
+    $cartItem = Cart::where('id', $id)
+        ->where('user_id', $user->id)
+        ->firstOrFail();
+
+    if ($request->quantity == 0) {
+        // Delete if quantity is zero
+        $cartItem->delete();
+
+        return response()->json(['message' => 'Cart item removed because quantity was set to zero.']);
+    }
+
+    $cartItem->quantity = $request->quantity;
+    $cartItem->save();
+
+    return response()->json($cartItem);
+}
+
+
+    // Remove a cart item
     public function destroy(Request $request, $id)
     {
+        $this->authorizeConsumer();
+
         $user = $request->user();
 
         $cartItem = Cart::where('id', $id)
@@ -80,4 +146,34 @@ class CartController extends Controller
 
         return response()->json(['message' => 'Cart item deleted successfully']);
     }
+    public function clear(Request $request)
+{
+    $this->authorizeConsumer();
+
+    $user = $request->user();
+
+    // Delete all cart items for this user
+    Cart::where('user_id', $user->id)->delete();
+
+    return response()->json([
+        'message' => 'Cart cleared successfully'
+    ]);
+}
+public function getTotal(Request $request)
+{
+    $user = $request->user();
+
+    // Load cart items with related product data
+    $cartItems = $user->cartItems()->with('product')->get();
+
+    // Sum the total safely (only if product exists)
+    $total = $cartItems->sum(function ($cart) {
+        return $cart->product ? $cart->product->price * $cart->quantity : 0;
+    });
+
+    return response()->json(['total' => $total]);
+}
+
+
+
 }
